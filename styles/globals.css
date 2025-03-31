@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom global styles */
+body, html {
+  background-color: var(--bg-bgPrimary);
+  color: var(--text-textPrimary);
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+}
