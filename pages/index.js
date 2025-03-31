@@ -1,11 +1,11 @@
-import Head from 'next/head';
-import { useState, useEffect } from 'react';
-import Leaderboard from '../components/Leaderboard';
-import MatchPredictions from '../components/MatchPredictions';
-import RecentGuesses from '../components/RecentGuesses';
+import Head from "next/head";
+import { useState, useEffect } from "react";
+import Leaderboard from "../components/Leaderboard";
+import MatchPredictions from "../components/MatchPredictions";
+import RecentGuesses from "../components/RecentGuesses";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('leaderboard');
+  const [activeTab, setActiveTab] = useState("leaderboard");
   const [data, setData] = useState({
     leaderboardData: [],
     upcomingMatches: [],
@@ -16,7 +16,7 @@ export default function Home() {
 useEffect(() => {
     async function fetchData() {
         try {
-            const response = await fetch('/api/getData');
+            const response = await fetch("/api/getData");
             const result = await response.json();
             setData(result);
             setLoading(false);
@@ -40,8 +40,8 @@ useEffect(() => {
           <p className="text-sm mt-2 text-blue-200">Pitching the latest cricket predictions</p>
           <div className="mt-4 flex justify-center space-x-1">
             <span className="inline-block w-3 h-3 bg-yellow-400 rounded-full animate-bounce"></span>
-            <span className="inline-block w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
-            <span className="inline-block w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></span>
+            <span className="inline-block w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: "0.2s"}}></span>
+            <span className="inline-block w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: "0.4s"}}></span>
           </div>
         </div>
       </div>
@@ -51,7 +51,7 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 text-white overflow-hidden relative">
       <Head>
-        <title>Air Bat N' Ball 2025 | IPL Edition</title>
+        <title>Air Bat N" Ball 2025 | IPL Edition</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
@@ -67,7 +67,7 @@ useEffect(() => {
       <header className="text-center py-12 relative">
         <div className="relative inline-block">
           <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 drop-shadow-lg pb-2">
-            🏏 Air Bat N' Ball 2025 🏏
+            🏏 Air Bat N" Ball 2025 🏏
           </h1>
           <div className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500"></div>
           <p className="text-xl mt-4 text-blue-200 font-semibold tracking-wider">IPL EDITION</p>
@@ -81,31 +81,31 @@ useEffect(() => {
         {/* Tabs with cricket bat hover effect */}
         <div className="flex flex-wrap space-x-2 md:space-x-6 mb-8 justify-center">
           <button 
-            onClick={() => setActiveTab('leaderboard')}
+            onClick={() => setActiveTab("leaderboard")}
             className={`px-6 py-3 rounded-lg focus:outline-none transition-all duration-300 transform group relative overflow-hidden ${
-              activeTab === 'leaderboard' 
-                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 font-bold shadow-lg scale-105' 
-                : 'bg-white/10 hover:bg-white/20 hover:scale-105'
+              activeTab === "leaderboard" 
+                ? "bg-gradient-to-r from-indigo-600 to-blue-600 font-bold shadow-lg scale-105" 
+                : "bg-white/10 hover:bg-white/20 hover:scale-105"
             }`}
           >
             <span className="relative z-10">Leaderboard</span>
             <div className={`absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-500 transform transition-transform duration-300 ${
-              activeTab === 'leaderboard' ? 'translate-x-0' : 'translate-x-full group-hover:-translate-x-0'
-            }`} style={{opacity: '0.15'}}></div>
+              activeTab === "leaderboard" ? "translate-x-0" : "translate-x-full group-hover:-translate-x-0"
+            }`} style={{opacity: "0.15"}}></div>
             <div className="absolute top-0 right-0 w-8 h-8 transform rotate-45 translate-x-2 -translate-y-2 bg-white/5"></div>
           </button>
           <button 
-            onClick={() => setActiveTab('predictions')}
+            onClick={() => setActiveTab("predictions")}
             className={`px-6 py-3 rounded-lg focus:outline-none transition-all duration-300 transform group relative overflow-hidden ${
-              activeTab === 'predictions' 
-                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 font-bold shadow-lg scale-105' 
-                : 'bg-white/10 hover:bg-white/20 hover:scale-105'
+              activeTab === "predictions" 
+                ? "bg-gradient-to-r from-indigo-600 to-blue-600 font-bold shadow-lg scale-105" 
+                : "bg-white/10 hover:bg-white/20 hover:scale-105"
             }`}
           >
             <span className="relative z-10">Match Predictions</span>
             <div className={`absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-500 transform transition-transform duration-300 ${
-              activeTab === 'predictions' ? 'translate-x-0' : 'translate-x-full group-hover:-translate-x-0'
-            }`} style={{opacity: '0.15'}}></div>
+              activeTab === "predictions" ? "translate-x-0" : "translate-x-full group-hover:-translate-x-0"
+            }`} style={{opacity: "0.15"}}></div>
             <div className="absolute top-0 right-0 w-8 h-8 transform rotate-45 translate-x-2 -translate-y-2 bg-white/5"></div>
           </button>
         </div>
@@ -113,7 +113,7 @@ useEffect(() => {
         {/* Content area with glass effect */}
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/20 transition-all duration-500">
           {/* Leaderboard and Recent Guesses */}
-          {activeTab === 'leaderboard' && (
+          {activeTab === "leaderboard" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Leaderboard data={data.leaderboardData} />
               <RecentGuesses guesses={data.recentGuesses} />
@@ -121,7 +121,7 @@ useEffect(() => {
           )}
           
           {/* Match Predictions */}
-          {activeTab === 'predictions' && (
+          {activeTab === "predictions" && (
             <div>
               <MatchPredictions upcomingMatches={data.upcomingMatches} />
             </div>
