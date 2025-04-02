@@ -106,7 +106,7 @@ export default function Leaderboard({ data }) {
               <div className="flex items-center space-x-2">
                 <div className={`py-1 px-3 rounded-full ${
                   idx === 0 ? 'bg-yellow-500/20 text-yellow-300' : 
-                  idx === 1 ? 'bg-gray-400/20 text-gray-200' : 
+                  idx === 1 ? 'bg-gray-400/20 text-white-200' : 
                   idx === 2 ? 'bg-amber-500/20 text-amber-300' : 
                   'bg-blue-500/20 text-blue-300'
                 }`}>

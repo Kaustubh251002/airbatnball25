@@ -159,7 +159,7 @@ export default function RecentGuesses({ guesses }) {
         <div className="w-4 h-4 rounded-full border border-blue-300/50 mr-2 flex items-center justify-center">
           <div className="w-2 h-2 rounded-full bg-blue-400/70"></div>
         </div>
-        <span>Predictions update in every 5 minutes</span>
+        <span>Predictions update in every 10 minutes</span>
       </div>
     </div>
   );
