@@ -149,7 +149,7 @@ function isValidGuess(response, scheduleMap) {
   if (!sched) return false;
   const teams = sched["Teams"].split(" vs ").map(team => team.trim());
   const guess = response["Who Wins Today"].trim();
-  if (!teams.includes(guess)) return false;
+  if (!teams.some(team => team.toLowerCase() === guess.toLowerCase())) return false;
   const startTime = sched.start_time_iso;
   const ts = response.timestamp_dt;
   if (!startTime || !ts) return false;
