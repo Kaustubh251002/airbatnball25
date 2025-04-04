@@ -21,6 +21,16 @@ export default function MatchPredictions({ upcomingMatches }) {
       </div>
     );
   }
+  upcomingMatches.map(match => {
+    const hoursLeft = Math.floor((new Date(match.start_time_iso) - new Date()) / (1000 * 60 * 60));
+    let message = "";
+    if (hoursLeft > 24) message = "Plenty of time to strategize!";
+    else if (hoursLeft > 12) message = "Excitement is building up!";
+    else if (hoursLeft > 6) message = "The match is just around the corner!";
+    else message = "The heat is on!";
+    match.hoursLeft = hoursLeft;
+    match.message = message;
+  });
   
   // IPL team colors
   const teamColors = {

@@ -90,15 +90,7 @@ const upcomingMatches = scheduleData.filter(match =>
         Object.entries(voteCounts).map(([team, count]) => [team, ((count / total) * 100).toFixed(2)])
     );
     
-    // Calculate countdown (hours left)
-    const hoursLeft = Math.floor((new Date(match.start_time_iso) - now) / (1000 * 60 * 60));
-    let message = "";
-    if (hoursLeft > 24) message = "Plenty of time to strategize!";
-    else if (hoursLeft > 12) message = "Excitement is building up!";
-    else if (hoursLeft > 6) message = "The match is just around the corner!";
-    else message = "The heat is on!";
-    
-    return { ...match, percentages, hoursLeft, message };
+    return { ...match, percentages};
 }).filter(match => match !== null);
   
   // Recent valid guesses: Last 10 valid responses sorted descending by timestamp
