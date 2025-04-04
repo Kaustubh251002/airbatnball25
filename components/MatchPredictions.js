@@ -22,7 +22,7 @@ export default function MatchPredictions({ upcomingMatches }) {
     );
   }
   upcomingMatches.map(match => {
-    const hoursLeft = Math.floor((new Date(match.start_time_iso) - new Date()) / (1000 * 60 * 60));
+    const hoursLeft = Math.floor((new Date(match.start_time_iso) - new Date(Date.now() + (5 * 60 + 30) * 60 * 1000)) / (1000 * 60 * 60));
     let message = "";
     if (hoursLeft > 24) message = "Plenty of time to strategize!";
     else if (hoursLeft > 12) message = "Excitement is building up!";
