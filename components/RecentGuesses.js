@@ -59,7 +59,7 @@ export default function RecentGuesses({ guesses }) {
                 ...guess,
                 emoji: getRandomEmoji(),
                 phrase: getRandomPhrase(),
-                teamColor: getTeamColor(guess["Who Wins Today"]),
+                teamColor: getTeamColor(guess["Who will win the match today ? "]),
                 timeAgo: timeAgo >= 0 ? timeAgo : 0 // Ensure non-negative time
             };
         }).sort((a, b) => {
@@ -128,7 +128,7 @@ export default function RecentGuesses({ guesses }) {
                           className="font-bold"
                           style={{ color: guess.teamColor }}
                         >
-                          {guess["Who Wins Today"]}
+                          {guess["Who will win the match today ? "]}
                         </span>
                       </div>
                       

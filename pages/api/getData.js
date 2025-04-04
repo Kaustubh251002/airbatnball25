@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   let responsesRecords = [];
   try {
     scheduleRecords = await getSheetRecords(scheduleSheetKey, "Schedule for filtering!A:G");
-    responsesRecords = await getSheetRecords(responsesSheetKey, "Sample Form Response Data!A:D");
+    responsesRecords = await getSheetRecords(responsesSheetKey, "Form Responses!A:D");
   } catch (error) {
     console.error("Error fetching sheets:", error);
     return res.status(500).json({ error: "Failed to fetch data" });
@@ -30,8 +30,9 @@ export default async function handler(req, res) {
   // Process responses data
   const responsesData = responsesRecords.map(record => {
     const timestamp_dt = parseResponseTimestamp(record["Timestamp"])?.toISOString() || null;
-    const matchId = extractMatchId(record["Match"]);
-    return { ...record, timestamp_dt, "Match ID": matchId };
+    const match = record["Which match are you predicting for?"]
+    const matchId = extractMatchId(record["Which match are you predicting for?"]);
+    return { ...record, timestamp_dt, "Match ID": matchId, "Match": match};
   });
   
   // Mark valid guesses
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
       const winner = match["Winner"];
       responsesWithValidity.forEach(resp => {
         if (resp["Match ID"] === matchId && resp.valid_guess) {
-          if (resp["Who Wins Today"].trim() === winner.trim()) {
+          if (resp["Who will win the match today ? "].trim() === winner.trim()) {
             const user = resp["Submitted By"].trim();
             leaderboard[user] = (leaderboard[user] || 0) + 1;
           }
@@ -81,7 +82,7 @@ const upcomingMatches = scheduleData.filter(match =>
     // Compute team votes percentages
     const voteCounts = {};
     matchResponses.forEach(resp => {
-        const team = resp["Who Wins Today"].trim();
+        const team = resp["Who will win the match today ? "].trim();
         voteCounts[team] = (voteCounts[team] || 0) + 1;
     });
     const total = Object.values(voteCounts).reduce((a, b) => a + b, 0);
@@ -148,7 +149,7 @@ function isValidGuess(response, scheduleMap) {
   const sched = scheduleMap[matchId];
   if (!sched) return false;
   const teams = sched["Teams"].split(" vs ").map(team => team.trim());
-  const guess = response["Who Wins Today"].trim();
+  const guess = response["Who will win the match today ? "].trim();
   if (!teams.some(team => team.toLowerCase() === guess.toLowerCase())) return false;
   const startTime = sched.start_time_iso;
   const ts = response.timestamp_dt;
