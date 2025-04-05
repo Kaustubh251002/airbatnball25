@@ -28,18 +28,39 @@ export default async function handler(req, res) {
   });
   
   // Process responses data
-  const responsesData = responsesRecords.map(record => {
+  // Step 1: Enrich response records
+const responsesData = responsesRecords.map(record => {
     const timestamp_dt = parseResponseTimestamp(record["Timestamp"])?.toISOString() || null;
-    const match = record["Which match are you predicting for?"]
-    const matchId = extractMatchId(record["Which match are you predicting for?"]);
-    return { ...record, timestamp_dt, "Match ID": matchId, "Match": match};
+    const match = record["Which match are you predicting for?"];
+    const matchId = extractMatchId(match);
+    return { ...record, timestamp_dt, "Match ID": matchId, "Match": match };
   });
   
-  // Mark valid guesses
-  const responsesWithValidity = responsesData.map(resp => ({
-    ...resp,
-    valid_guess: isValidGuess(resp, scheduleMap)
-  }));
+  // Step 2: Filter valid responses
+  const validResponses = responsesData.filter(resp => isValidGuess(resp, scheduleMap));
+  
+  // Step 3: Sort by timestamp ascending (so latest overwrites previous)
+  validResponses.sort((a, b) => new Date(a.timestamp_dt) - new Date(b.timestamp_dt));
+  
+  // Step 4: Retain only the latest valid guess per (user, match)
+  const latestValidGuessMap = new Map();
+  validResponses.forEach(resp => {
+    const user = resp["Submitted By"]; 
+    const key = `${user}_${resp["Match ID"]}`;
+    latestValidGuessMap.set(key, resp);
+  });
+  
+  // Step 5: Mark validity in full dataset
+  const responsesWithValidity = responsesData.map(resp => {
+    const user = resp["Submitted By"];
+    const key = `${user}_${resp["Match ID"]}`;
+    const isLatestValid = latestValidGuessMap.get(key) === resp;
+    return {
+      ...resp,
+      valid_guess: isLatestValid
+    };
+  });
+  
   
   // Compute leaderboard: count correct guesses for matches where Winner != "TBD"
   const leaderboard = {};
