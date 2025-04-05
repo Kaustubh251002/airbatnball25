@@ -1,9 +1,42 @@
 // components/Leaderboard.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import UserMatchModal from './UserMatchModal';
+
+import Fuse from 'fuse.js';
 
 export default function Leaderboard({ data }) {
   const [highlightedUser, setHighlightedUser] = useState(null);
-  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const openModal = (entry) => {
+    setSelectedUser(entry);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setSelectedUser(null);
+    setShowModal(false);
+  };
+
+  // Configure Fuse.js with options for fuzzy matching
+  const fuse = useMemo(() => {
+    return new Fuse(data, {
+      keys: ['user'],
+      threshold: 0.3, // Adjust sensitivity as needed
+    });
+  }, [data]);
+
+  // Filtered results based on search query
+  const filteredData = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return data;
+    }
+    const result = fuse.search(searchQuery);
+    return result.map(res => res.item);
+  }, [searchQuery, data, fuse]);
+
   // Add animation effect to highlight top performers
   useEffect(() => {
     if (data.length > 0) {
@@ -45,9 +78,20 @@ export default function Leaderboard({ data }) {
         </div>
       </div>
       
+      {/* Search Input */}
+      <div className="mb-4">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by username..."
+          className="w-full p-2 rounded-lg bg-white/10 text-white placeholder-blue-200 border border-white/20 focus:outline-none focus:border-blue-300"
+        />
+      </div>
+
       {/* Scrollable leaderboard with enhanced styling */}
       <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-        {data.length === 0 ? (
+        {filteredData.length === 0 ? (
           <div className="text-center py-8 text-blue-200">
             <div className="inline-block mb-4 relative">
               <div className="w-16 h-16 border-4 border-dashed rounded-full border-blue-300/50 animate-spin"></div>
@@ -56,10 +100,11 @@ export default function Leaderboard({ data }) {
             <p>No predictions yet! Be the first to join.</p>
           </div>
         ) : (
-          data.map((entry, idx) => (
+          filteredData.map((entry, idx) => (
             <div 
-              key={entry.user} 
-              className={`flex justify-between items-center p-4 rounded-lg transition-all duration-300 relative overflow-hidden ${
+              key={entry.user}
+              onClick={() => openModal(entry)} 
+              className={`cursor-pointer hover:scale-102 hover:shadow-md transform flex justify-between items-center p-4 rounded-lg transition-all duration-300 relative overflow-hidden ${
                 idx < 3 
                   ? 'hover:scale-102 transform' 
                   : 'bg-white/5 hover:bg-white/10'
@@ -128,6 +173,15 @@ export default function Leaderboard({ data }) {
           ))
         )}
       </div>
+
+      {selectedUser && (
+        <UserMatchModal 
+          isOpen={showModal}
+          onClose={closeModal}
+          user={selectedUser.user}
+          matches={selectedUser.matches}
+        />
+      )}
       
       {/* Bottom decoration element */}
       <div className="flex items-center justify-center mt-6 text-xs text-blue-300">

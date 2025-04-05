@@ -47,7 +47,6 @@ export default function RecentGuesses({ guesses }) {
     }
     return '#4CAF50'; // Default color if no match
   };
-  console.log(guesses);
   // Create dynamic phrases and emoji assignments for each guess
     const enhancedGuesses = useMemo(() => {
         return guesses.map(guess => {

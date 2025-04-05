@@ -72,7 +72,13 @@ const responsesData = responsesRecords.map(record => {
         if (resp["Match ID"] === matchId && resp.valid_guess) {
           if (resp["Who will win the match today ? "].trim() === winner.trim()) {
             const user = resp["Submitted By"].trim();
-            leaderboard[user] = (leaderboard[user] || 0) + 1;
+            if(!leaderboard[user]){
+              leaderboard[user] = {};
+              leaderboard[user]["matches"] = [];
+              leaderboard[user]["correctGuesses"] = 0;
+            }
+            leaderboard[user]["correctGuesses"] = leaderboard[user]["correctGuesses"] + 1;
+          leaderboard[user]["matches"].push(resp["Match"]);
           }
         }
       });
@@ -81,9 +87,12 @@ const responsesData = responsesRecords.map(record => {
   
   // Prepare leaderboardData as sorted array (top 10)
   const leaderboardData = Object.entries(leaderboard)
-    .map(([user, correctGuesses]) => ({ user, correctGuesses }))
-    .sort((a, b) => b.correctGuesses - a.correctGuesses)
-    .slice(0, 10);
+    .map(([user, data]) => ({ 
+      user, 
+      correctGuesses:data.correctGuesses, 
+      matches:data.matches 
+    }))
+    .sort((a, b) => b.correctGuesses - a.correctGuesses);
   
   // Upcoming matches: Winner === "TBD" and start_time > now
   const now = new Date();
