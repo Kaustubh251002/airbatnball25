@@ -33,6 +33,7 @@ const responsesData = responsesRecords.map(record => {
     const timestamp_dt = parseResponseTimestamp(record["Timestamp"])?.toISOString() || null;
     const match = record["Which match are you predicting for?"];
     const matchId = extractMatchId(match);
+    record["Who will win the match today ? "] = record["Who will win the match today ? "].toUpperCase();
     return { ...record, timestamp_dt, "Match ID": matchId, "Match": match };
   });
   
