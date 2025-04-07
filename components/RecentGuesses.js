@@ -87,7 +87,7 @@ export default function RecentGuesses({ guesses }) {
       </div>
       
       {/* Guesses feed */}
-      <div className="space-y-3 max-h-[47vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
         {enhancedGuesses.length === 0 ? (
           <div className="text-center py-8 text-blue-200">
             <div className="inline-block mb-4 relative">
