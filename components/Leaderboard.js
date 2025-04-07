@@ -61,7 +61,7 @@ export default function Leaderboard({ data }) {
   };
 
   return (
-    <div className="mb-8 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-lg relative overflow-hidden">
+    <div className="mb-6 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-lg relative overflow-hidden">
       {/* Cricket decoration elements */}
       <div className="absolute -right-6 -top-6 w-12 h-12 border-8 border-yellow-500/20 rounded-full"></div>
       <div className="absolute left-1/2 -bottom-3 transform -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
@@ -90,7 +90,7 @@ export default function Leaderboard({ data }) {
       </div>
 
       {/* Scrollable leaderboard with enhanced styling */}
-      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+      <div className="space-y-3 max-h-[47vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
         {filteredData.length === 0 ? (
           <div className="text-center py-8 text-blue-200">
             <div className="inline-block mb-4 relative">
