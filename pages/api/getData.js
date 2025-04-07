@@ -161,7 +161,10 @@ function extractMatchId(matchStr) {
 
 function parseResponseTimestamp(ts) {
   try {
-    return new Date(ts);
+    const date = new Date(ts);
+    date.setHours(date.getHours() + 5);
+    date.setMinutes(date.getMinutes() + 30);
+    return date;
   } catch (e) {
     return null;
   }
@@ -174,8 +177,8 @@ function isValidGuess(response, scheduleMap) {
   const teams = sched["Teams"].split(" vs ").map(team => team.trim());
   const guess = response["Who will win the match today ? "].trim();
   if (!teams.some(team => team.toLowerCase() === guess.toLowerCase())) return false;
-  const startTime = sched.start_time_iso;
-  const ts = response.timestamp_dt;
+  const startTime = new Date(sched.start_time_iso);
+  const ts = new Date(response.timestamp_dt);
   if (!startTime || !ts) return false;
   return ts < startTime;
 }
