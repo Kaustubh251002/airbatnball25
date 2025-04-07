@@ -97,7 +97,7 @@ export default function Leaderboard({ data }) {
               <div className="w-16 h-16 border-4 border-dashed rounded-full border-blue-300/50 animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">🏏</div>
             </div>
-            <p>No predictions yet! Be the first to join.</p>
+            <p>Match Results yet to be declared!</p>
           </div>
         ) : (
           filteredData.map((entry, idx) => (
