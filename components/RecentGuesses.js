@@ -69,13 +69,13 @@ export default function RecentGuesses({ guesses }) {
   
   
   return (
-    <div className="mb-8 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-lg relative overflow-hidden">
+    <div className="mb-6 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-lg relative overflow-hidden">
       {/* Cricket decoration elements */}
       <div className="absolute -left-6 -top-6 w-12 h-12 border-8 border-blue-500/20 rounded-full"></div>
       <div className="absolute right-1/2 -bottom-3 transform translate-x-1/2 w-20 h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
       
       {/* Heading with live indicator */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 mt-2">
         <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
           <span className="inline-block transform hover:rotate-12 transition-transform duration-200">🎯</span> 
           <span className="ml-2">Recent Predicitons</span>
@@ -87,7 +87,7 @@ export default function RecentGuesses({ guesses }) {
       </div>
       
       {/* Guesses feed */}
-      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+      <div className="space-y-3 max-h-[47vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
         {enhancedGuesses.length === 0 ? (
           <div className="text-center py-8 text-blue-200">
             <div className="inline-block mb-4 relative">
