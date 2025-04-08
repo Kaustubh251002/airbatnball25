@@ -63,7 +63,7 @@ export default function RecentGuesses({ guesses }) {
             };
         }).sort((a, b) => {
             return a.timeAgo - b.timeAgo;
-        }).slice(0, 20); // Return only the first 10 guesses
+        });
     }, [guesses]);
 
   
