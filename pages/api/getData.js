@@ -127,8 +127,7 @@ const upcomingMatches = scheduleData.filter(match =>
   // Recent valid guesses: Last 10 valid responses sorted descending by timestamp
   const recentGuesses = responsesWithValidity
     .filter(resp => resp.valid_guess)
-    .sort((a, b) => new Date(b.timestamp_dt) - new Date(a.timestamp_dt))
-    .slice(0, 20);
+    .sort((a, b) => new Date(b.timestamp_dt) - new Date(a.timestamp_dt));
   
   res.status(200).json({
     scheduleData,
