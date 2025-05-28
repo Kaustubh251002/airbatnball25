@@ -29,7 +29,7 @@ export default async function handler(req, res) {
   
   // Process responses data
   // Step 1: Enrich response records
-const responsesData = responsesRecords.map(record => {
+  const responsesData = responsesRecords.map(record => {
     const timestamp_dt = parseResponseTimestamp(record["Timestamp"])?.toISOString() || null;
     const match = record["Which match are you predicting for?"];
     const matchId = extractMatchId(match);
@@ -79,6 +79,10 @@ const responsesData = responsesRecords.map(record => {
               leaderboard[user]["correctGuesses"] = 0;
             }
             leaderboard[user]["correctGuesses"] = leaderboard[user]["correctGuesses"] + 1;
+            if(matchId.includes("Qualifier") || matchId.includes("Eliminator"))
+              leaderboard[user]["correctGuesses"] = leaderboard[user]["correctGuesses"] + 1;
+            if(matchId.includes("Final"))
+              leaderboard[user]["correctGuesses"] = leaderboard[user]["correctGuesses"] + 2;
           leaderboard[user]["matches"].push(resp["Match"]);
           }
         }
