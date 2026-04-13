@@ -226,6 +226,10 @@ function extractMatchId(matchStr, scheduleData = null) {
 
 function parseResponseTimestamp(ts) {
   try {
+    // Google Sheets stores timestamps as serial numbers (days since Dec 30, 1899)
+    if (/^\d+(\.\d+)?$/.test(ts.trim())) {
+      return new Date((parseFloat(ts) - 25569) * 86400 * 1000);
+    }
     const date = new Date(ts);
     date.setHours(date.getHours() + 5);
     date.setMinutes(date.getMinutes() + 30);
