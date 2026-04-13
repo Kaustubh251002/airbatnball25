@@ -1,5 +1,16 @@
 import { useEffect } from 'react';
 
+function parseMatch(match) {
+  // "Apr 13 - SRH vs RR" → { date: "Apr 13", teams: "SRH vs RR" }
+  // "IPL-21: SRH vs RR, April 7th" → { date: null, teams: "SRH vs RR" }
+  if (match.includes(' - ')) {
+    const [date, teams] = match.split(' - ');
+    return { date: date.trim(), teams: teams.trim() };
+  }
+  const after = match.split(':')[1] || match;
+  return { date: null, teams: after.split(',')[0].trim() };
+}
+
 export default function UserMatchModal({ isOpen, onClose, user, matches, rank, score }) {
   useEffect(() => {
     const handler = e => e.key === 'Escape' && onClose();
@@ -46,15 +57,21 @@ export default function UserMatchModal({ isOpen, onClose, user, matches, rank, s
               <p className="text-[10px] uppercase tracking-widest text-slate-500 pb-1">
                 Correct Predictions — {matches.length}
               </p>
-              {matches.map((match, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2.5 py-2 px-3 bg-leaf/5 border border-leaf/15 rounded-lg"
-                >
-                  <span className="text-leaf text-xs flex-shrink-0">✓</span>
-                  <span className="text-sm text-slate-300">{match}</span>
-                </div>
-              ))}
+              {matches.map((match, idx) => {
+                const { date, teams } = parseMatch(match);
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2.5 py-2 px-3 bg-leaf/5 border border-leaf/15 rounded-lg"
+                  >
+                    <span className="text-leaf text-xs flex-shrink-0">✓</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-100 leading-snug">{teams}</p>
+                      {date && <p className="text-[10px] text-slate-500 leading-none mt-0.5">{date}</p>}
+                    </div>
+                  </div>
+                );
+              })}
             </>
           )}
         </div>

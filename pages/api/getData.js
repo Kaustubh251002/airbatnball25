@@ -239,10 +239,9 @@ function extractMatchId(matchStr, scheduleData = null) {
 function parseResponseTimestamp(ts) {
   try {
     // Google Sheets stores timestamps as serial numbers (days since Dec 30, 1899).
-    // The sheet is in IST (UTC+5:30), so subtract that offset to get correct UTC.
+    // Sheets serialises in UTC, so convert directly with no offset adjustment.
     if (/^\d+(\.\d+)?$/.test(ts.trim())) {
-      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-      return new Date((parseFloat(ts) - 25569) * 86400 * 1000 - IST_OFFSET_MS);
+      return new Date((parseFloat(ts) - 25569) * 86400 * 1000);
     }
     const date = new Date(ts);
     date.setHours(date.getHours() + 5);
