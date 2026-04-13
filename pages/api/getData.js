@@ -3,7 +3,7 @@ import { getSheetRecords } from '../../lib/gsheet';
 export default async function handler(req, res) {
   const scheduleSheetKey = process.env.SCHEDULE_SHEET_KEY;
   const responsesSheetKey = process.env.RESPONSES_SHEET_KEY;
-  
+
   let scheduleRecords = [];
   let responsesRecords = [];
   try {
@@ -13,57 +13,89 @@ export default async function handler(req, res) {
     console.error("Error fetching sheets:", error);
     return res.status(500).json({ error: "Failed to fetch data" });
   }
-  
+
   // Process schedule data
   const scheduleData = scheduleRecords.map(record => {
     const start_time = parseSchedule(record);
     const start_time_iso = start_time ? start_time.toISOString() : null;
     return { ...record, start_time_iso, matchId: record["Match ID"] || extractMatchId(record["Match"]) };
   });
-  
+
   // Create a map for easier lookup by Match ID
   const scheduleMap = {};
   scheduleData.forEach(record => {
     scheduleMap[record.matchId] = record;
   });
-  
+
   // Process responses data
-  // Step 1: Enrich response records
   const responsesData = responsesRecords.map(record => {
     const timestamp_dt = parseResponseTimestamp(record["Timestamp"])?.toISOString() || null;
     const match = record["Which match are you predicting for?"];
-    const matchId = extractMatchId(match);
+    const matchId = extractMatchId(match, scheduleData);
     record["Who will win the match today ? "] = record["Who will win the match today ? "].toUpperCase();
     return { ...record, timestamp_dt, "Match ID": matchId, "Match": match };
   });
-  
-  // Step 2: Filter valid responses
+
+  // Filter valid responses
   const validResponses = responsesData.filter(resp => isValidGuess(resp, scheduleMap));
-  
-  // Step 3: Sort by timestamp ascending (so latest overwrites previous)
+
+  // Sort by timestamp ascending (so latest overwrites previous)
   validResponses.sort((a, b) => new Date(a.timestamp_dt) - new Date(b.timestamp_dt));
-  
-  // Step 4: Retain only the latest valid guess per (user, match)
+
+  // Retain only the latest valid guess per (user, match)
   const latestValidGuessMap = new Map();
   validResponses.forEach(resp => {
-    const user = resp["Submitted By"]; 
+    const user = resp["Submitted By"];
     const key = `${user}_${resp["Match ID"]}`;
     latestValidGuessMap.set(key, resp);
   });
-  
-  // Step 5: Mark validity in full dataset
+
+  // Mark validity in full dataset
   const responsesWithValidity = responsesData.map(resp => {
     const user = resp["Submitted By"];
     const key = `${user}_${resp["Match ID"]}`;
     const isLatestValid = latestValidGuessMap.get(key) === resp;
-    return {
-      ...resp,
-      valid_guess: isLatestValid
-    };
+    return { ...resp, valid_guess: isLatestValid };
   });
-  
-  
-  // Compute leaderboard: count correct guesses for matches where Winner != "TBD"
+
+  // ── Per-user stats from latest valid guesses ──────────────────────────────
+  const userStats = {};
+  for (const resp of latestValidGuessMap.values()) {
+    const user = resp["Submitted By"].trim();
+    if (!userStats[user]) {
+      userStats[user] = { totalGuesses: 0, lastPrediction: null, guessMap: {} };
+    }
+    userStats[user].totalGuesses += 1;
+    const ts = resp.timestamp_dt;
+    if (!userStats[user].lastPrediction || ts > userStats[user].lastPrediction) {
+      userStats[user].lastPrediction = ts;
+    }
+    userStats[user].guessMap[resp["Match ID"]] = resp["Who will win the match today ? "].trim();
+  }
+
+  // ── Streak computation ────────────────────────────────────────────────────
+  // Sort completed matches reverse-chronologically (most recent first)
+  const completedMatchesSorted = scheduleData
+    .filter(m => m.Winner && m.Winner !== 'TBD')
+    .sort((a, b) => new Date(b.start_time_iso) - new Date(a.start_time_iso));
+
+  function computeStreak(user) {
+    const stats = userStats[user];
+    if (!stats) return 0;
+    let streak = 0;
+    for (const match of completedMatchesSorted) {
+      const guessed = stats.guessMap[match.matchId];
+      if (!guessed) continue; // no prediction → skip, don't break streak
+      if (guessed === match.Winner.trim()) {
+        streak++;
+      } else {
+        break; // wrong prediction → streak ends
+      }
+    }
+    return streak;
+  }
+
+  // ── Leaderboard ───────────────────────────────────────────────────────────
   const leaderboard = {};
   scheduleData.forEach(match => {
     if (match["Winner"] && match["Winner"] !== "TBD") {
@@ -73,93 +105,123 @@ export default async function handler(req, res) {
         if (resp["Match ID"] === matchId && resp.valid_guess) {
           if (resp["Who will win the match today ? "].trim() === winner.trim()) {
             const user = resp["Submitted By"].trim();
-            if(!leaderboard[user]){
-              leaderboard[user] = {};
-              leaderboard[user]["matches"] = [];
-              leaderboard[user]["correctGuesses"] = 0;
+            if (!leaderboard[user]) {
+              leaderboard[user] = { matches: [], correctGuesses: 0 };
             }
-            leaderboard[user]["correctGuesses"] = leaderboard[user]["correctGuesses"] + 1;
-            if(matchId.includes("Qualifier") || matchId.includes("Eliminator"))
-              leaderboard[user]["correctGuesses"] = leaderboard[user]["correctGuesses"] + 1;
-            if(matchId.includes("Final"))
-              leaderboard[user]["correctGuesses"] = leaderboard[user]["correctGuesses"] + 2;
-          leaderboard[user]["matches"].push(resp["Match"]);
+            leaderboard[user]["correctGuesses"] += 1;
+            if (matchId.includes("Qualifier") || matchId.includes("Eliminator"))
+              leaderboard[user]["correctGuesses"] += 1;
+            if (matchId.includes("Final"))
+              leaderboard[user]["correctGuesses"] += 2;
+            leaderboard[user]["matches"].push(resp["Match"]);
           }
         }
       });
     }
   });
-  
-  // Prepare leaderboardData as sorted array (top 10)
+
   const leaderboardData = Object.entries(leaderboard)
-    .map(([user, data]) => ({ 
-      user, 
-      correctGuesses:data.correctGuesses, 
-      matches:data.matches 
+    .map(([user, data]) => ({
+      user,
+      correctGuesses: data.correctGuesses,
+      matches: data.matches,
+      totalGuesses: userStats[user]?.totalGuesses || data.matches.length,
+      lastPrediction: userStats[user]?.lastPrediction || null,
+      streak: computeStreak(user),
     }))
     .sort((a, b) => b.correctGuesses - a.correctGuesses);
-  
-  // Upcoming matches: Winner === "TBD" and start_time > now
+
+  // ── Upcoming matches ──────────────────────────────────────────────────────
   const now = new Date();
-const upcomingMatches = scheduleData.filter(match =>
-    match["Winner"] === "TBD" && 
-    match.start_time_iso && 
+  const upcomingMatches = scheduleData.filter(match =>
+    match["Winner"] === "TBD" &&
+    match.start_time_iso &&
     new Date(match.start_time_iso) > now
-).map(match => {
-    // Get valid responses for the match
+  ).map(match => {
     const matchResponses = responsesWithValidity.filter(resp =>
-        resp["Match ID"] === match.matchId && resp.valid_guess
+      resp["Match ID"] === match.matchId && resp.valid_guess
     );
-    
-    // Skip matches with no valid guesses
     if (matchResponses.length === 0) return null;
 
-    // Compute team votes percentages
     const voteCounts = {};
+    const voterNames = {};
     matchResponses.forEach(resp => {
-        const team = resp["Who will win the match today ? "].trim();
-        voteCounts[team] = (voteCounts[team] || 0) + 1;
+      const team = resp["Who will win the match today ? "].trim();
+      voteCounts[team] = (voteCounts[team] || 0) + 1;
+      if (!voterNames[team]) voterNames[team] = [];
+      voterNames[team].push(resp["Submitted By"].trim().split(' ')[0]);
     });
     const total = Object.values(voteCounts).reduce((a, b) => a + b, 0);
     const percentages = Object.fromEntries(
-        Object.entries(voteCounts).map(([team, count]) => [team, ((count / total) * 100).toFixed(2)])
+      Object.entries(voteCounts).map(([team, count]) => [team, ((count / total) * 100).toFixed(2)])
     );
-    
-    return { ...match, percentages};
-}).filter(match => match !== null);
-  
-  // Recent valid guesses: Last 10 valid responses sorted descending by timestamp
+
+    return { ...match, percentages, voterNames };
+  }).filter(match => match !== null);
+
+  // ── Recent guesses with result ────────────────────────────────────────────
   const recentGuesses = responsesWithValidity
     .filter(resp => resp.valid_guess)
-    .sort((a, b) => new Date(b.timestamp_dt) - new Date(a.timestamp_dt));
-  
+    .sort((a, b) => new Date(b.timestamp_dt) - new Date(a.timestamp_dt))
+    .map(resp => {
+      const match = scheduleMap[resp["Match ID"]];
+      let result = 'pending';
+      if (match && match.Winner && match.Winner !== 'TBD') {
+        result = resp["Who will win the match today ? "].trim() === match.Winner.trim()
+          ? 'correct' : 'wrong';
+      }
+      return { ...resp, result };
+    });
+
   res.status(200).json({
     scheduleData,
     responsesData,
     leaderboardData,
     upcomingMatches,
-    recentGuesses
+    recentGuesses,
   });
 }
 
-// Helper functions
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function parseSchedule(record) {
   try {
     const dateStr = record["Date"].split(",")[0].trim();
     const timeStr = record["Time"].trim();
-    const dt = new Date(`${dateStr} 2025 ${timeStr}`);
+    const dt = new Date(`${dateStr} 2026 ${timeStr}`);
     return dt;
   } catch (e) {
     return null;
   }
 }
 
-function extractMatchId(matchStr) {
-  try {
+function extractMatchId(matchStr, scheduleData = null) {
+  if (!matchStr) return "";
+
+  // Legacy format: "IPL-21: RCB vs SRH, April 7th"
+  if (matchStr.includes(":")) {
     return matchStr.split(":")[0].trim();
-  } catch (e) {
-    return "";
   }
+
+  // New format: "Apr 13 - SRH vs RR"
+  if (matchStr.includes(" - ") && scheduleData) {
+    const dashIdx = matchStr.indexOf(" - ");
+    const datePart  = matchStr.slice(0, dashIdx).trim();   // "Apr 13"
+    const teamsPart = matchStr.slice(dashIdx + 3).trim();  // "SRH vs RR"
+    const [monthAbbr, day] = datePart.split(" ");
+
+    const found = scheduleData.find(m => {
+      if (m.Teams !== teamsPart) return false;
+      // Schedule date: "April 13, Monday" → split to ["April", "13", "Monday"]
+      const parts = m.Date.replace(",", "").split(" ");
+      return parts[1] === day &&
+             parts[0].toLowerCase().startsWith(monthAbbr.toLowerCase());
+    });
+
+    return found ? found.matchId : teamsPart;
+  }
+
+  return matchStr.trim();
 }
 
 function parseResponseTimestamp(ts) {

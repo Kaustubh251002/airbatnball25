@@ -1,10 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom global styles */
-body, html {
-  background-color: var(--bg-bgPrimary);
-  color: var(--text-textPrimary);
-  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+/* ── Color tokens — dark (default) ─────────────────────────────────────────── */
+:root {
+  --c-app:     7 7 15;       /* #07070F */
+  --c-surface: 13 13 27;     /* #0D0D1B */
+  --c-raised:  19 19 38;     /* #131326 */
+  --c-stroke:  28 28 53;     /* #1C1C35 */
+
+  --c-text-primary:   248 250 252;  /* slate-50  */
+  --c-text-secondary: 203 213 225;  /* slate-300 */
+  --c-text-muted:     100 116 139;  /* slate-500 */
+  --c-text-faint:     71  85  105;  /* slate-600 */
+  --c-glow: rgba(255, 107, 53, 0.08);
 }
+
+/* ── Color tokens — light ───────────────────────────────────────────────────── */
+:root.light {
+  --c-app:     220 223 236;   /* #DCE0EC — cool blue-gray page bg */
+  --c-surface: 234 236 247;   /* #EAF0F7 — card surface, not white */
+  --c-raised:  226 229 242;   /* #E2E5F2 — hover / input bg */
+  --c-stroke:  203 207 224;   /* #CBD0E0 — visible but soft borders */
+
+  --c-text-primary:   15  23  42;   /* slate-900 */
+  --c-text-secondary: 51  65  85;   /* slate-700 */
+  --c-text-muted:     100 116 139;  /* slate-500 */
+  --c-text-faint:     148 163 184;  /* slate-400 */
+  --c-glow: rgba(255, 107, 53, 0.05);
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────────── */
+body, html {
+  background-color: rgb(var(--c-app));
+  color: rgb(var(--c-text-primary));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ── Text color overrides for light mode ────────────────────────────────────── */
+.light .text-slate-50  { color: rgb(var(--c-text-primary)); }
+.light .text-slate-100 { color: rgb(var(--c-text-primary)); }
+.light .text-slate-200 { color: rgb(var(--c-text-secondary)); }
+.light .text-slate-300 { color: rgb(var(--c-text-secondary)); }
+.light .text-slate-400 { color: rgb(var(--c-text-muted)); }
+.light .text-slate-500 { color: rgb(var(--c-text-muted)); }
+.light .text-slate-600 { color: rgb(var(--c-text-faint)); }
+
+.light input.bg-raised {
+  color: rgb(var(--c-text-primary));
+}
+.light input::placeholder {
+  color: rgb(var(--c-text-faint));
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgb(var(--c-stroke)); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-raised)); }

@@ -1,51 +1,63 @@
-// components/UserMatchModal.js
 import { useEffect } from 'react';
 
-export default function UserMatchModal({ isOpen, onClose, user, matches }) {
-  // Close modal on outside click or Esc key
+export default function UserMatchModal({ isOpen, onClose, user, matches, rank, score }) {
   useEffect(() => {
-    const handleKeyDown = (e) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    const handler = e => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+    <div
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white/10 border border-white/20 p-6 rounded-2xl max-w-md w-full shadow-xl relative text-white"
-        onClick={(e) => e.stopPropagation()} // Prevent modal from closing when clicking inside
+        className="bg-surface border border-stroke rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl"
+        onClick={e => e.stopPropagation()}
       >
-        {/* Close Button */}
-        <button 
-          onClick={onClose} 
-          className="absolute top-3 right-4 text-white hover:text-red-300 text-xl"
-        >
-          &times;
-        </button>
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-stroke flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-brand/15 border border-brand/25 flex items-center justify-center text-sm font-bold text-brand select-none">
+              {user.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-50">{user}</p>
+              <p className="text-[10px] text-slate-500">Rank #{rank} · {score} pts</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg bg-raised flex items-center justify-center text-slate-500 hover:text-slate-200 transition-colors text-sm"
+          >
+            ✕
+          </button>
+        </div>
 
-        <h3 className="text-xl font-bold mb-4 text-yellow-300">
-          🎯 Correct Predictions by {user}
-        </h3>
-
-        {matches.length === 0 ? (
-          <p className="text-blue-200">No correct predictions found.</p>
-        ) : (
-          <ul className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20">
-            {matches.map((match, idx) => (
-              <li 
-                key={idx} 
-                className="bg-white/5 hover:bg-white/10 p-3 rounded-lg transition-all duration-200 border-l-4 border-green-500/40"
-              >
-                <span className="text-sm">{match}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* Matches */}
+        <div className="p-4 space-y-2 max-h-72 overflow-y-auto">
+          {matches.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-6">No correct predictions yet</p>
+          ) : (
+            <>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500 pb-1">
+                Correct Predictions — {matches.length}
+              </p>
+              {matches.map((match, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2.5 py-2 px-3 bg-leaf/5 border border-leaf/15 rounded-lg"
+                >
+                  <span className="text-leaf text-xs flex-shrink-0">✓</span>
+                  <span className="text-sm text-slate-300">{match}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

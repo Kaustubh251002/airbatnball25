@@ -1,138 +1,231 @@
 import Head from 'next/head';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Leaderboard from '../components/Leaderboard';
 import MatchPredictions from '../components/MatchPredictions';
 import RecentGuesses from '../components/RecentGuesses';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('leaderboard');
   const [data, setData] = useState({
     leaderboardData: [],
     upcomingMatches: [],
-    recentGuesses: []
+    recentGuesses: [],
+    scheduleData: [],
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]       = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [lightMode, setLightMode]   = useState(false);
+  const [activeTab, setActiveTab]   = useState('rankings');
 
-useEffect(() => {
-    async function fetchData() {
-        try {
-            const response = await fetch('/api/getData');
-            const result = await response.json();
-            setData(result);
-            setLoading(false);
-        } catch (error) {
-            console.error("Error fetching data:", error);
-            setLoading(false);
-        }
+  const rankingsRef = useRef(null);
+  const feedRef     = useRef(null);
+  const matchesRef  = useRef(null);
+
+  // Persist light mode
+  useEffect(() => {
+    const stored = localStorage.getItem('lightMode');
+    if (stored === 'true') {
+      setLightMode(true);
+      document.documentElement.classList.add('light');
     }
-    
+  }, []);
+
+  function toggleLight() {
+    setLightMode(prev => {
+      const next = !prev;
+      if (next) {
+        document.documentElement.classList.add('light');
+        localStorage.setItem('lightMode', 'true');
+      } else {
+        document.documentElement.classList.remove('light');
+        localStorage.setItem('lightMode', 'false');
+      }
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await fetch('/api/getData');
+        const result = await res.json();
+        setData(result);
+        setLastUpdated(new Date());
+        setLoading(false);
+      } catch (err) {
+        console.error(err);
+        setLoading(false);
+      }
+    }
     fetchData();
-    const interval = setInterval(fetchData, 1000 * 60 * 5); // Refresh every 5 minutes
-    
-    return () => clearInterval(interval); // Cleanup interval on component unmount
-}, []);
+    const interval = setInterval(fetchData, 1000 * 60 * 5);
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalPlayers  = data.leaderboardData.length;
+  const totalGuesses  = data.recentGuesses.length;
+  const totalMatches  = data.scheduleData?.length ?? 0;
+  const matchesDone   = data.scheduleData?.filter(m => m.Winner && m.Winner !== 'TBD').length ?? 0;
+  const seasonPct     = totalMatches > 0 ? Math.round((matchesDone / totalMatches) * 100) : 0;
+
+  function scrollToTab(tab) {
+    setActiveTab(tab);
+    const refMap = { rankings: rankingsRef, feed: feedRef, matches: matchesRef };
+    refMap[tab]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-purple-600 to-blue-800 text-white flex items-center justify-center">
-        <div className="relative text-center p-8 bg-white/10 backdrop-blur-sm rounded-xl shadow-2xl border border-white/20">
-          <p className="text-2xl font-bold mt-3">Loading...</p>
-          <p className="text-sm mt-2 text-blue-200">Pitching the latest cricket predictions</p>
-          <div className="mt-4 flex justify-center space-x-1">
-            <span className="inline-block w-3 h-3 bg-yellow-400 rounded-full animate-bounce"></span>
-            <span className="inline-block w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
-            <span className="inline-block w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></span>
-          </div>
+      <div className="min-h-screen bg-app flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-slate-500">Loading predictions…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 text-white overflow-hidden relative">
+    <div className="min-h-screen bg-app text-slate-50 pb-20 lg:pb-0">
       <Head>
-        <title>Air Bat N&apos; Ball 2025 | IPL Edition</title>
-        <link rel="icon" href="/favicon.ico" />
+        <title>Air Bat N&apos; Ball | IPL Predictions</title>
+        <meta name="description" content="IPL 2026 match prediction leaderboard" />
       </Head>
-      
-      {/* Cricket field decoration elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full border-4 border-white/10"></div>
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full border-4 border-white/10"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-8 bg-white/10 rotate-90"></div>
-        <div className="absolute top-1/4 right-10 w-8 h-16 bg-white/5 rounded-t-full"></div>
-        <div className="absolute bottom-1/4 left-10 w-8 h-16 bg-white/5 rounded-t-full"></div>
-      </div>
-      
-      <header className="text-center py-12 relative">
-        <div className="relative inline-block">
-          <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 drop-shadow-lg pb-2">
-            🏏 Air Bat N&apos; Ball 2025 🏏
-          </h1>
-          <div className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500"></div>
-          <p className="text-xl mt-4 text-blue-200 font-semibold tracking-wider">IPL EDITION</p>
+
+      {/* ── Ambient top glow ─────────────────────────── */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 120% 35% at 50% -5%, var(--c-glow) 0%, transparent 70%)' }}
+      />
+
+      {/* ── Top accent line ───────────────────────────── */}
+      <div className="h-px bg-gradient-to-r from-transparent via-brand/60 to-transparent" />
+
+      {/* ── Header ───────────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-app/90 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-brand/20 border border-brand/30 flex items-center justify-center text-base select-none">
+              🏏
+            </div>
+            <div className="leading-none">
+              <p className="text-sm font-bold tracking-tight">Air Bat N&apos; Ball</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">IPL 2026 · Prediction League</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Light mode toggle */}
+            <button
+              onClick={toggleLight}
+              className="w-8 h-8 rounded-lg bg-surface border border-stroke flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors text-sm"
+              title={lightMode ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
+              {lightMode ? '🌙' : '☀️'}
+            </button>
+            <div className="flex items-center gap-1.5 bg-leaf/10 border border-leaf/20 rounded-full px-2.5 py-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-leaf animate-pulse" />
+              <span className="text-[10px] font-semibold text-leaf tracking-wide">LIVE</span>
+            </div>
+          </div>
         </div>
-        <div className="absolute -left-16 top-10 w-32 h-4 bg-green-600/20 transform rotate-45 animate-pulse"></div>
-        <div className="absolute -right-16 top-20 w-32 h-4 bg-green-600/20 transform -rotate-45 animate-pulse"></div>
+        <div className="h-px bg-gradient-to-r from-transparent via-stroke to-transparent" />
       </header>
-      
-      <main className="max-w-6xl mx-auto mb-5 px-4 z-10 relative">
-        
-        {/* Tabs with cricket bat hover effect */}
-        <div className="flex flex-wrap space-x-2 md:space-x-6 mb-8 justify-center">
-          <button 
-            onClick={() => setActiveTab('leaderboard')}
-            className={`px-6 py-3 rounded-lg focus:outline-none transition-all duration-300 transform group relative overflow-hidden ${
-              activeTab === 'leaderboard' 
-                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 font-bold shadow-lg scale-105' 
-                : 'bg-white/10 hover:bg-white/20 hover:scale-105'
-            }`}
-          >
-            <span className="relative z-10">Leaderboard</span>
-            <div className={`absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-500 transform transition-transform duration-300 ${
-              activeTab === 'leaderboard' ? 'translate-x-0' : 'translate-x-full group-hover:-translate-x-0'
-            }`} style={{opacity: '0.15'}}></div>
-            <div className="absolute top-0 right-0 w-8 h-8 transform rotate-45 translate-x-2 -translate-y-2 bg-white/5"></div>
-          </button>
-          <button 
-            onClick={() => setActiveTab('predictions')}
-            className={`px-6 py-3 rounded-lg focus:outline-none transition-all duration-300 transform group relative overflow-hidden ${
-              activeTab === 'predictions' 
-                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 font-bold shadow-lg scale-105' 
-                : 'bg-white/10 hover:bg-white/20 hover:scale-105'
-            }`}
-          >
-            <span className="relative z-10">Match Predictions</span>
-            <div className={`absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-500 transform transition-transform duration-300 ${
-              activeTab === 'predictions' ? 'translate-x-0' : 'translate-x-full group-hover:-translate-x-0'
-            }`} style={{opacity: '0.15'}}></div>
-            <div className="absolute top-0 right-0 w-8 h-8 transform rotate-45 translate-x-2 -translate-y-2 bg-white/5"></div>
-          </button>
+
+      <main className="relative max-w-5xl mx-auto px-4 py-6 space-y-6">
+
+        {/* ── Stats strip ─────────────────────────────── */}
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard value={totalPlayers} label="Players"     numColor="text-brand"     topColor="#FF6B35" />
+          <StatCard value={totalGuesses} label="Predictions" numColor="text-indigo-400" topColor="#818CF8" />
+          <StatCard value={matchesDone}  label="Results In"  numColor="text-leaf"      topColor="#22C55E" />
         </div>
-        
-        {/* Content area with glass effect */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/20 transition-all duration-500">
-          {/* Leaderboard and Recent Guesses */}
-          {activeTab === 'leaderboard' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Leaderboard data={data.leaderboardData} />
-              <RecentGuesses guesses={data.recentGuesses} />
+
+        {/* ── Season progress bar ─────────────────────── */}
+        {totalMatches > 0 && (
+          <div className="bg-surface border border-stroke rounded-xl px-4 py-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-widest text-slate-500">Season Progress</span>
+              <span className="text-[10px] font-semibold text-slate-400">{matchesDone} / {totalMatches} matches</span>
             </div>
-          )}
-          
-          {/* Match Predictions */}
-          {activeTab === 'predictions' && (
-            <div>
-              <MatchPredictions upcomingMatches={data.upcomingMatches} />
+            <div className="h-1.5 bg-raised rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${seasonPct}%`,
+                  background: 'linear-gradient(90deg, #FF6B35 0%, #F5C542 100%)',
+                }}
+              />
             </div>
-          )}
+            <p className="text-[10px] text-slate-600 text-right">{seasonPct}% complete</p>
+          </div>
+        )}
+
+        {/* ── Leaderboard + Feed ──────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div ref={rankingsRef} id="tab-rankings">
+            <Leaderboard data={data.leaderboardData} />
+          </div>
+          <div ref={feedRef} id="tab-feed">
+            <RecentGuesses guesses={data.recentGuesses} />
+          </div>
         </div>
+
+        {/* ── Upcoming Matches ────────────────────────── */}
+        <section ref={matchesRef} id="tab-matches">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold">Upcoming Matches</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">Community vote split</p>
+          </div>
+          <MatchPredictions upcomingMatches={data.upcomingMatches} />
+        </section>
+
       </main>
-      
-      {/* Cricket bat animation at bottom */}
-      <div className="hidden md:block absolute bottom-4 left-4 w-32 h-6 bg-gradient-to-r from-yellow-800 to-yellow-600 rounded-t-full origin-bottom-left transform hover:rotate-45 transition-transform duration-300 shadow-lg">
-        <div className="absolute bottom-0 left-0 w-6 h-20 bg-gradient-to-r from-yellow-900 to-yellow-700 rounded-t-lg"></div>
-      </div>
+
+      <footer className="relative border-t border-stroke mt-8 py-5 text-center">
+        <p className="text-xs text-slate-600">
+          Refreshes every 5 min
+          {lastUpdated && ` · Last updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+        </p>
+      </footer>
+
+      {/* ── Mobile bottom tab bar ─────────────────────── */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-sm border-t border-stroke">
+        <div className="grid grid-cols-3 h-14">
+          {[
+            { id: 'rankings', icon: '🏆', label: 'Rankings' },
+            { id: 'feed',     icon: '📋', label: 'Feed'     },
+            { id: 'matches',  icon: '🏏', label: 'Matches'  },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => scrollToTab(tab.id)}
+              className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors ${
+                activeTab === tab.id ? 'text-brand' : 'text-slate-500'
+              }`}
+            >
+              <span className="text-base leading-none">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+function StatCard({ value, label, numColor = 'text-slate-50', topColor }) {
+  return (
+    <div
+      className="bg-surface border border-stroke rounded-xl px-4 py-3 text-center relative overflow-hidden"
+      style={topColor ? { borderTop: `2px solid ${topColor}40` } : {}}
+    >
+      {topColor && (
+        <div
+          className="absolute inset-x-0 top-0 h-10 pointer-events-none"
+          style={{ background: `radial-gradient(ellipse 80% 100% at 50% -20%, ${topColor}14 0%, transparent 70%)` }}
+        />
+      )}
+      <p className={`text-xl font-bold relative ${numColor}`}>{value}</p>
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-0.5 relative">{label}</p>
     </div>
   );
 }

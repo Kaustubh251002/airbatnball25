@@ -1,198 +1,248 @@
-// components/Leaderboard.js
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import UserMatchModal from './UserMatchModal';
 
-import Fuse from 'fuse.js';
+const RANK_META = {
+  0: { color: '#F5C542', textColor: 'text-gold',   badgeBg: 'bg-gold',   badgeText: 'text-app', sublabel: 'Champion',    glow: 'rgba(245,197,66,0.08)'  },
+  1: { color: '#9EB2C8', textColor: 'text-silver', badgeBg: 'bg-silver', badgeText: 'text-app', sublabel: 'Runner-up',   glow: 'rgba(158,178,200,0.07)' },
+  2: { color: '#C87941', textColor: 'text-bronze', badgeBg: 'bg-bronze', badgeText: 'text-app', sublabel: 'Third Place', glow: 'rgba(200,121,65,0.07)'  },
+};
+
+/** djb2-style hash → consistent HSL color per name */
+function nameToColor(name) {
+  let hash = 5381;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) + hash) + name.charCodeAt(i);
+    hash = hash & 0xFFFFFFFF;
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 60%, 55%)`;
+}
+
+/** Relative time for lastPrediction timestamp */
+function lastActiveLabel(iso) {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.floor(mins / 60);
+  if (h < 48)    return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
 
 export default function Leaderboard({ data }) {
-  const [highlightedUser, setHighlightedUser] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [query, setQuery]       = useState('');
+  const [selected, setSelected] = useState(null);
 
-  const openModal = (entry) => {
-    setSelectedUser(entry);
-    setShowModal(true);
-  };
+  const topScore = data[0]?.correctGuesses || 1;
 
-  const closeModal = () => {
-    setSelectedUser(null);
-    setShowModal(false);
-  };
+  const searchResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
+    return data
+      .map((item, i) => ({ ...item, rank: i }))
+      .filter(item => item.user.toLowerCase().includes(q))
+      .slice(0, 10);
+  }, [query, data]);
 
-  // Configure Fuse.js with options for fuzzy matching
-  const fuse = useMemo(() => {
-    return new Fuse(data, {
-      keys: ['user'],
-      threshold: 0.3, // Adjust sensitivity as needed
-    });
-  }, [data]);
-
-  // Filtered results based on search query
-  const filteredData = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return data;
-    }
-    const result = fuse.search(searchQuery);
-    return result.map(res => res.item);
-  }, [searchQuery, data, fuse]);
-
-  // Add animation effect to highlight top performers
-  useEffect(() => {
-    if (data.length > 0) {
-      const interval = setInterval(() => {
-        const randomTopUser = Math.floor(Math.random() * Math.min(3, data.length));
-        setHighlightedUser(randomTopUser);
-        setTimeout(() => setHighlightedUser(null), 1000);
-      }, 5000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [data]);
-
-  // Background gradient for top 3
-  const getGradient = (position) => {
-    switch(position) {
-      case 0: return 'from-yellow-300 to-yellow-600'; // Gold
-      case 1: return 'from-gray-300 to-gray-500'; // Silver
-      case 2: return 'from-amber-600 to-amber-800'; // Bronze
-      default: return '';
-    }
-  };
+  const top3 = data.slice(0, 3).map((item, i) => ({ ...item, rank: i }));
+  const rest = data.slice(3, 10).map((item, i) => ({ ...item, rank: i + 3 }));
 
   return (
-    <div className="mb-6 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-lg relative overflow-hidden">
-      {/* Cricket decoration elements */}
-      <div className="absolute -right-6 -top-6 w-12 h-12 border-8 border-yellow-500/20 rounded-full"></div>
-      <div className="absolute left-1/2 -bottom-3 transform -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
-      
-      {/* Trophy and title with animate-on-appear effect */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
-          <span className="inline-block transform hover:scale-110 transition-transform duration-200">🏆</span> 
-          <span className="ml-2">IPL Prediction Masters</span>
-        </h2>
-        <div className="hidden md:flex items-center space-x-1">
-          <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
-          <span className="text-sm text-blue-200">Live Rankings</span>
+    <div className="bg-surface border border-stroke rounded-2xl overflow-hidden flex flex-col h-[680px]">
+
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-stroke flex items-center justify-between flex-shrink-0">
+        <div>
+          <h2 className="text-sm font-semibold">Leaderboard</h2>
+          <p className="text-[10px] text-slate-500 mt-0.5">{data.length} players · top 10 shown</p>
         </div>
       </div>
-      
-      {/* Search Input */}
-      <div className="mb-4">
+
+      {/* Search */}
+      <div className="px-5 py-3 border-b border-stroke flex-shrink-0">
         <input
           type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by username..."
-          className="w-full p-2 rounded-lg bg-white/10 text-white placeholder-blue-200 border border-white/20 focus:outline-none focus:border-blue-300"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search any player to see their rank…"
+          className="w-full bg-raised border border-stroke rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-brand/50 transition-colors"
         />
       </div>
 
-      {/* Scrollable leaderboard with enhanced styling */}
-      <div className="space-y-3 max-h-[47vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-        {filteredData.length === 0 ? (
-          <div className="text-center py-8 text-blue-200">
-            <div className="inline-block mb-4 relative">
-              <div className="w-16 h-16 border-4 border-dashed rounded-full border-blue-300/50 animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">🏏</div>
+      {/* Content */}
+      <div className="overflow-y-auto flex-1">
+        {searchResults !== null ? (
+          searchResults.length === 0 ? (
+            <p className="py-10 text-center text-sm text-slate-600">No players found</p>
+          ) : (
+            <div className="divide-y divide-stroke">
+              {searchResults.map(entry => (
+                <ListRow key={entry.user} entry={entry} topScore={topScore} onSelect={setSelected} />
+              ))}
             </div>
-            <p>Match Results yet to be declared!</p>
-          </div>
+          )
+        ) : data.length === 0 ? (
+          <p className="py-10 text-center text-sm text-slate-600">No results yet</p>
         ) : (
-          filteredData.map((entry, idx) => (
-            <div 
-              key={entry.user}
-              onClick={() => openModal(entry)} 
-              className={`cursor-pointer hover:scale-102 hover:shadow-md transform flex justify-between items-center p-4 rounded-lg transition-all duration-300 relative overflow-hidden ${
-                idx < 3 
-                  ? 'hover:scale-102 transform' 
-                  : 'bg-white/5 hover:bg-white/10'
-              } ${highlightedUser === idx ? 'animate-pulse' : ''}`}
-              style={{
-                backgroundImage: idx < 3 ? `linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05))` : '',
-                borderLeft: idx < 3 ? '3px solid' : '',
-                borderLeftColor: idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'transparent'
-              }}
-            >
-              {/* Position indicator with medal for top 3 */}
-              <div className="flex items-center space-x-3">
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  idx < 3 
-                    ? `bg-gradient-to-br ${getGradient(idx)} text-white font-bold shadow-lg` 
-                    : 'bg-white/10 text-blue-100'
-                }`}>
-                  {idx < 3 ? (
-                    <span className="text-lg">{["🥇", "🥈", "🥉"][idx]}</span>
-                  ) : (
-                    <span>{idx + 1}</span>
-                  )}
-                </div>
-                
-                {/* Username with special styling for top performers */}
-                <div className="flex flex-col">
-                  <span className={`font-semibold ${
-                    idx === 0 ? 'text-yellow-300' : 
-                    idx === 1 ? 'text-gray-300' : 
-                    idx === 2 ? 'text-amber-600' : 'text-white'
-                  }`}>
-                    {entry.user}
-                  </span>
-                  
-                  {idx < 3 && (
-                    <span className="text-xs text-blue-300">
-                      {idx === 0 ? "Prediction Genius" : idx === 1 ? "Cricket Oracle" : "IPL Expert"}
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              {/* Score with cricket ball icon */}
-              <div className="flex items-center space-x-2">
-                <div className={`py-1 px-3 rounded-full ${
-                  idx === 0 ? 'bg-yellow-500/20 text-yellow-300' : 
-                  idx === 1 ? 'bg-gray-400/20 text-white-200' : 
-                  idx === 2 ? 'bg-amber-500/20 text-amber-300' : 
-                  'bg-blue-500/20 text-blue-300'
-                }`}>
-                  <div className="flex items-center">
-                    <span className="inline-block w-3 h-3 rounded-full bg-gradient-to-br from-red-500 to-red-700 mr-2"></span>
-                    <span>{entry.correctGuesses} {entry.correctGuesses === 1 ? 'Prediction' : 'Predictions'}</span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Decorative cricket bat for top 3 */}
-              {idx < 3 && (
-                <div className="absolute -right-3 -bottom-6 w-10 h-16 rotate-45 opacity-10">
-                  <div className="w-full h-3/4 bg-yellow-600 rounded-t-sm"></div>
-                  <div className="w-1/2 h-1/4 mx-auto bg-yellow-800 rounded-b-sm"></div>
-                </div>
-              )}
+          <>
+            <div className="divide-y divide-stroke border-b border-stroke">
+              {top3.map(entry => (
+                <PodiumRow key={entry.user} entry={entry} onSelect={setSelected} />
+              ))}
             </div>
-          ))
+            {rest.length > 0 && (
+              <div className="divide-y divide-stroke">
+                {rest.map(entry => (
+                  <ListRow key={entry.user} entry={entry} topScore={topScore} onSelect={setSelected} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {selectedUser && (
-        <UserMatchModal 
-          isOpen={showModal}
-          onClose={closeModal}
-          user={selectedUser.user}
-          matches={selectedUser.matches}
+      {selected && (
+        <UserMatchModal
+          isOpen
+          onClose={() => setSelected(null)}
+          user={selected.user}
+          matches={selected.matches}
+          rank={selected.rank + 1}
+          score={selected.correctGuesses}
         />
       )}
-      
-      {/* Bottom decoration element */}
-      <div className="flex items-center justify-center mt-6 text-xs text-blue-300">
-        <div className="relative w-6 h-6">
-          <div className="absolute inset-0 border-t-2 border-l-2 border-blue-400/30 rounded-full animate-ping"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            🏏
-          </div>
-        </div>
-        <span className="ml-2">Updated every 10 minutes</span>
-      </div>
     </div>
+  );
+}
+
+/* ── Podium row — top 3 ── */
+function PodiumRow({ entry, onSelect }) {
+  const meta       = RANK_META[entry.rank];
+  const isChampion = entry.rank === 0;
+  const avatarColor = nameToColor(entry.user);
+  const accuracy   = entry.totalGuesses > 0
+    ? Math.round((entry.correctGuesses / entry.totalGuesses) * 100)
+    : 0;
+  const lastActive = lastActiveLabel(entry.lastPrediction);
+
+  return (
+    <button
+      onClick={() => onSelect(entry)}
+      className={`w-full text-left flex items-center gap-3 hover:brightness-110 transition-all border-l-2 animate-slideInRow ${
+        isChampion ? 'px-5 py-4' : 'px-5 py-3'
+      }`}
+      style={{
+        borderLeftColor: meta.color,
+        background: `linear-gradient(90deg, ${meta.glow} 0%, transparent 55%)`,
+        animationDelay: `${entry.rank * 40}ms`,
+      }}
+    >
+      {/* Rank badge */}
+      <div
+        className={`rounded-xl ${meta.badgeBg} ${meta.badgeText} flex items-center justify-center font-bold flex-shrink-0 ${
+          isChampion ? 'w-9 h-9 text-base' : 'w-7 h-7 text-sm'
+        }`}
+      >
+        {entry.rank + 1}
+      </div>
+
+      {/* Avatar */}
+      <div
+        className={`rounded-full flex items-center justify-center font-bold text-white flex-shrink-0 select-none ${
+          isChampion ? 'w-9 h-9 text-sm' : 'w-7 h-7 text-xs'
+        }`}
+        style={{ backgroundColor: avatarColor }}
+      >
+        {entry.user.charAt(0).toUpperCase()}
+      </div>
+
+      {/* Name + sublabel */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className={`font-bold truncate ${meta.textColor} ${isChampion ? 'text-base' : 'text-sm'}`}>
+            {entry.user}
+          </p>
+          {entry.streak >= 3 && (
+            <span className="text-[10px] font-semibold text-brand bg-brand/10 border border-brand/20 rounded-full px-1.5 py-0.5 flex-shrink-0">
+              🔥 {entry.streak}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <p className="text-[10px] text-slate-500">{meta.sublabel}</p>
+          {accuracy > 0 && (
+            <span className="text-[10px] text-slate-600">· {accuracy}% acc</span>
+          )}
+          {lastActive && (
+            <span className="text-[10px] text-slate-600">· {lastActive}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Score */}
+      <div className="text-right flex-shrink-0">
+        <p className={`font-bold tabular-nums leading-none ${meta.textColor} ${isChampion ? 'text-2xl' : 'text-lg'}`}>
+          {entry.correctGuesses}
+        </p>
+        <p className="text-[10px] text-slate-600 mt-0.5">pts</p>
+      </div>
+    </button>
+  );
+}
+
+/* ── Compact list row (#4–10 / search results) ── */
+function ListRow({ entry, topScore, onSelect }) {
+  const barPct      = topScore > 0 ? (entry.correctGuesses / topScore) * 100 : 0;
+  const avatarColor = nameToColor(entry.user);
+  const accuracy    = entry.totalGuesses > 0
+    ? Math.round((entry.correctGuesses / entry.totalGuesses) * 100)
+    : 0;
+  const lastActive  = lastActiveLabel(entry.lastPrediction);
+
+  return (
+    <button
+      onClick={() => onSelect(entry)}
+      className="w-full text-left px-5 py-2.5 flex items-center gap-3 hover:bg-raised transition-colors animate-slideInRow"
+      style={{ animationDelay: `${entry.rank * 40}ms` }}
+    >
+      <span className="w-5 text-xs text-slate-600 font-medium text-right flex-shrink-0 tabular-nums">
+        {entry.rank + 1}
+      </span>
+
+      {/* Avatar */}
+      <div
+        className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-white text-xs flex-shrink-0 select-none"
+        style={{ backgroundColor: avatarColor }}
+      >
+        {entry.user.charAt(0).toUpperCase()}
+      </div>
+
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className="text-sm text-slate-300 truncate leading-none">{entry.user}</p>
+          {entry.streak >= 3 && (
+            <span className="text-[10px] text-brand flex-shrink-0">🔥{entry.streak}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-px bg-stroke rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${barPct}%`, background: 'rgba(255,107,53,0.45)' }}
+            />
+          </div>
+          {accuracy > 0 && (
+            <span className="text-[10px] text-slate-600 flex-shrink-0">{accuracy}%</span>
+          )}
+          {lastActive && (
+            <span className="text-[10px] text-slate-600 flex-shrink-0 hidden sm:inline">{lastActive}</span>
+          )}
+        </div>
+      </div>
+
+      <span className="text-sm font-bold text-slate-300 tabular-nums flex-shrink-0">{entry.correctGuesses}</span>
+    </button>
   );
 }

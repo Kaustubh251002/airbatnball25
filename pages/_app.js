@@ -1,4 +1,4 @@
-import '@/styles/globals.css'; // Ensure Tailwind styles are loaded
+import '@/styles/globals.css';
 import Head from 'next/head';
 
 export default function MyApp({ Component, pageProps }) {
@@ -6,7 +6,7 @@ export default function MyApp({ Component, pageProps }) {
     <>
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Air Bat N&apos; Ball 2025</title>
+        <title>Air Bat N&apos; Ball | IPL Predictions</title>
       </Head>
       <Component {...pageProps} />
     </>

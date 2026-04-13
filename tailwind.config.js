@@ -1,24 +1,35 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-    content: [
-      "./pages/**/*.{js,jsx}",
-      "./components/**/*.{js,jsx}",
-      "./styles/**/*.css"
-    ],
-    theme: {
-      extend: {
-        colors: {
-          bgPrimary: "#121212",
-          bgSecondary: "#1e1e1e",
-          bgTertiary: "#2c2c2c",
-          textPrimary: "#e0e0e0",
-          textSecondary: "#b0b0b0",
-          accentGold: "#FFD700",
-          accentGreen: "#4CAF50",
-          accentBlue: "#2196F3"
-        }
-      }
-    },
-    plugins: []
-  };
-  
+  content: [
+    "./pages/**/*.{js,jsx}",
+    "./components/**/*.{js,jsx}",
+    "./styles/**/*.css"
+  ],
+  theme: {
+    extend: {
+      colors: {
+        // CSS-variable driven — supports dark/light themes
+        app:     'rgb(var(--c-app) / <alpha-value>)',
+        surface: 'rgb(var(--c-surface) / <alpha-value>)',
+        raised:  'rgb(var(--c-raised) / <alpha-value>)',
+        stroke:  'rgb(var(--c-stroke) / <alpha-value>)',
+        // Fixed accent colors
+        brand:   '#FF6B35',
+        gold:    '#F5C542',
+        silver:  '#9EB2C8',
+        bronze:  '#C87941',
+        leaf:    '#22C55E',
+      },
+      keyframes: {
+        slideInRow: {
+          from: { opacity: '0', transform: 'translateX(-8px)' },
+          to:   { opacity: '1', transform: 'translateX(0)' },
+        },
+      },
+      animation: {
+        slideInRow: 'slideInRow 0.3s ease both',
+      },
+    }
+  },
+  plugins: []
+};
