@@ -33,6 +33,8 @@ export default async function handler(req, res) {
     const match = record["Which match are you predicting for?"];
     const matchId = extractMatchId(match, scheduleData);
     record["Who will win the match today ? "] = record["Who will win the match today ? "].toUpperCase();
+    // Strip placeholder last-name dashes (e.g. "Ishan -----" → "Ishan")
+    record["Submitted By"] = record["Submitted By"].replace(/\s*-+\s*$/, '').trim();
     return { ...record, timestamp_dt, "Match ID": matchId, "Match": match };
   });
 
