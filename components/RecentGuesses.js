@@ -97,8 +97,8 @@ export default function RecentGuesses({ guesses }) {
                       {team}
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-600 mt-0.5 truncate">
-                    {label} · {time}
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">
+                    {label} <span className="text-slate-600">· {time}</span>
                   </p>
                 </div>
 
