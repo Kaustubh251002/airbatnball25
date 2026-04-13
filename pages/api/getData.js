@@ -156,7 +156,7 @@ export default async function handler(req, res) {
       Object.entries(voteCounts).map(([team, count]) => [team, ((count / total) * 100).toFixed(2)])
     );
 
-    return { ...match, percentages, voterNames };
+    return { ...match, percentages, voterNames, totalVotes: total };
   }).filter(match => match !== null);
 
   // ── Recent guesses with result ────────────────────────────────────────────
@@ -188,7 +188,8 @@ function parseSchedule(record) {
   try {
     const dateStr = record["Date"].split(",")[0].trim();
     const timeStr = record["Time"].trim();
-    const dt = new Date(`${dateStr} 2026 ${timeStr}`);
+    // Explicitly parse as IST (UTC+5:30) so times display correctly
+    const dt = new Date(`${dateStr} 2026 ${timeStr} GMT+0530`);
     return dt;
   } catch (e) {
     return null;
@@ -226,9 +227,11 @@ function extractMatchId(matchStr, scheduleData = null) {
 
 function parseResponseTimestamp(ts) {
   try {
-    // Google Sheets stores timestamps as serial numbers (days since Dec 30, 1899)
+    // Google Sheets stores timestamps as serial numbers (days since Dec 30, 1899).
+    // The sheet is in IST (UTC+5:30), so subtract that offset to get correct UTC.
     if (/^\d+(\.\d+)?$/.test(ts.trim())) {
-      return new Date((parseFloat(ts) - 25569) * 86400 * 1000);
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      return new Date((parseFloat(ts) - 25569) * 86400 * 1000 - IST_OFFSET_MS);
     }
     const date = new Date(ts);
     date.setHours(date.getHours() + 5);

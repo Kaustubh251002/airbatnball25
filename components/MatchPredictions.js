@@ -55,7 +55,7 @@ export default function MatchPredictions({ upcomingMatches }) {
         const bColor = teamColor(teams[1]);
         const hours  = hoursUntil(match.start_time_iso);
         const soon   = hours >= 0 && hours < 6;
-        const votes  = Math.round(Object.values(pct).reduce((s, v) => s + parseFloat(v), 0));
+        const votes  = match.totalVotes || 0;
 
         return (
           <div
