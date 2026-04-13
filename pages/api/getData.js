@@ -108,7 +108,7 @@ export default async function handler(req, res) {
           if (resp["Who will win the match today ? "].trim() === winner.trim()) {
             const user = resp["Submitted By"].trim();
             if (!leaderboard[user]) {
-              leaderboard[user] = { matches: [], correctGuesses: 0 };
+              leaderboard[user] = { matches: [], correctGuesses: 0, lastCorrectTs: null };
             }
             leaderboard[user]["correctGuesses"] += 1;
             if (matchId.includes("Qualifier") || matchId.includes("Eliminator"))
@@ -116,6 +116,9 @@ export default async function handler(req, res) {
             if (matchId.includes("Final"))
               leaderboard[user]["correctGuesses"] += 2;
             leaderboard[user]["matches"].push(resp["Match"]);
+            // Track when the user last scored for tiebreaking
+            if (!leaderboard[user]["lastCorrectTs"] || resp.timestamp_dt > leaderboard[user]["lastCorrectTs"])
+              leaderboard[user]["lastCorrectTs"] = resp.timestamp_dt;
           }
         }
       });
@@ -129,9 +132,15 @@ export default async function handler(req, res) {
       matches: data.matches,
       totalGuesses: userStats[user]?.totalGuesses || data.matches.length,
       lastPrediction: userStats[user]?.lastPrediction || null,
+      lastCorrectTs: data.lastCorrectTs,
       streak: computeStreak(user),
     }))
-    .sort((a, b) => b.correctGuesses - a.correctGuesses);
+    .sort((a, b) => {
+      if (b.correctGuesses !== a.correctGuesses) return b.correctGuesses - a.correctGuesses;
+      // Tiebreak: whoever reached their current score earlier ranks higher
+      if (a.lastCorrectTs && b.lastCorrectTs) return new Date(a.lastCorrectTs) - new Date(b.lastCorrectTs);
+      return 0;
+    });
 
   // ── Upcoming matches ──────────────────────────────────────────────────────
   const now = new Date();
