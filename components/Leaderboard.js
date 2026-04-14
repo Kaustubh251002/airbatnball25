@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import UserMatchModal from './UserMatchModal';
 
 const RANK_META = {
@@ -18,17 +18,23 @@ function nameToColor(name) {
   return `hsl(${hue}, 60%, 55%)`;
 }
 
-/** Relative time for lastPrediction timestamp */
-function lastActiveLabel(iso) {
-  if (!iso) return null;
-  const diff = Date.now() - new Date(iso);
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1)  return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const h = Math.floor(mins / 60);
-  if (h < 48)    return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
+/** Counts up from 0 → target over `duration` ms */
+function useCountUp(target, duration = 600) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (target === 0) { setCount(0); return; }
+    let start = null;
+    let rafId;
+    function step(ts) {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / duration, 1);
+      setCount(Math.round(p * target));
+      if (p < 1) rafId = requestAnimationFrame(step);
+    }
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [target, duration]);
+  return count;
 }
 
 export default function Leaderboard({ data }) {
@@ -48,6 +54,12 @@ export default function Leaderboard({ data }) {
 
   const top3 = data.slice(0, 3).map((item, i) => ({ ...item, rank: i }));
   const rest = data.slice(3, 10).map((item, i) => ({ ...item, rank: i + 3 }));
+
+  // Find the player with the highest active streak
+  const topStreaker = data.length > 0
+    ? data.reduce((best, e) => (e.streak || 0) > (best?.streak || 0) ? e : best, data[0])
+    : null;
+  const showStreakBanner = topStreaker && (topStreaker.streak || 0) >= 3;
 
   return (
     <div className="bg-surface border border-stroke rounded-2xl overflow-hidden flex flex-col h-[680px]">
@@ -70,6 +82,19 @@ export default function Leaderboard({ data }) {
           className="w-full bg-raised border border-stroke rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-brand/50 transition-colors"
         />
       </div>
+
+      {/* Hot streak banner */}
+      {showStreakBanner && !query && (
+        <div className="px-5 py-2 border-b border-stroke bg-brand/5 flex items-center gap-2 flex-shrink-0">
+          <span className="text-sm leading-none">🔥</span>
+          <p className="text-xs text-slate-400">
+            <span className="font-semibold text-brand">{topStreaker.user.split(' ')[0]}</span>
+            {' '}is on a{' '}
+            <span className="font-semibold text-brand">{topStreaker.streak}-match</span>
+            {' '}hot streak
+          </p>
+        </div>
+      )}
 
       {/* Content */}
       <div className="overflow-y-auto flex-1">
@@ -119,13 +144,13 @@ export default function Leaderboard({ data }) {
 
 /* ── Podium row — top 3 ── */
 function PodiumRow({ entry, onSelect }) {
-  const meta       = RANK_META[entry.rank];
-  const isChampion = entry.rank === 0;
+  const meta        = RANK_META[entry.rank];
+  const isChampion  = entry.rank === 0;
   const avatarColor = nameToColor(entry.user);
-  const accuracy   = entry.totalGuesses > 0
-    ? Math.round((entry.correctGuesses / entry.totalGuesses) * 100)
+  const accuracy    = entry.totalGuesses > 0
+    ? Math.round(((entry.correctCount ?? entry.correctGuesses) / (entry.decidedGuesses ?? entry.totalGuesses)) * 100)
     : 0;
-  const lastActive = lastActiveLabel(entry.lastPrediction);
+  const animScore   = useCountUp(entry.correctGuesses);
 
   return (
     <button
@@ -175,16 +200,13 @@ function PodiumRow({ entry, onSelect }) {
           {accuracy > 0 && (
             <span className="text-[10px] text-slate-600">· {accuracy}% acc</span>
           )}
-          {lastActive && (
-            <span className="text-[10px] text-slate-600">· {lastActive}</span>
-          )}
         </div>
       </div>
 
       {/* Score */}
       <div className="text-right flex-shrink-0">
         <p className={`font-bold tabular-nums leading-none ${meta.textColor} ${isChampion ? 'text-2xl' : 'text-lg'}`}>
-          {entry.correctGuesses}
+          {animScore}
         </p>
         <p className="text-[10px] text-slate-600 mt-0.5">pts</p>
       </div>
@@ -194,12 +216,12 @@ function PodiumRow({ entry, onSelect }) {
 
 /* ── Compact list row (#4–10 / search results) ── */
 function ListRow({ entry, topScore, onSelect }) {
-  const barPct      = topScore > 0 ? (entry.correctGuesses / topScore) * 100 : 0;
   const avatarColor = nameToColor(entry.user);
   const accuracy    = entry.totalGuesses > 0
-    ? Math.round((entry.correctGuesses / entry.totalGuesses) * 100)
+    ? Math.round(((entry.correctCount ?? entry.correctGuesses) / (entry.decidedGuesses ?? entry.totalGuesses)) * 100)
     : 0;
-  const lastActive  = lastActiveLabel(entry.lastPrediction);
+  const animBar     = useCountUp(topScore > 0 ? (entry.correctGuesses / topScore) * 100 : 0);
+  const animScore   = useCountUp(entry.correctGuesses);
 
   return (
     <button
@@ -229,20 +251,17 @@ function ListRow({ entry, topScore, onSelect }) {
         <div className="flex items-center gap-2">
           <div className="flex-1 h-px bg-stroke rounded-full overflow-hidden">
             <div
-              className="h-full rounded-full"
-              style={{ width: `${barPct}%`, background: 'rgba(255,107,53,0.45)' }}
+              className="h-full rounded-full transition-none"
+              style={{ width: `${animBar}%`, background: 'rgba(255,107,53,0.45)' }}
             />
           </div>
           {accuracy > 0 && (
             <span className="text-[10px] text-slate-600 flex-shrink-0">{accuracy}%</span>
           )}
-          {lastActive && (
-            <span className="text-[10px] text-slate-600 flex-shrink-0 hidden sm:inline">{lastActive}</span>
-          )}
         </div>
       </div>
 
-      <span className="text-sm font-bold text-slate-300 tabular-nums flex-shrink-0">{entry.correctGuesses}</span>
+      <span className="text-sm font-bold text-slate-300 tabular-nums flex-shrink-0">{animScore}</span>
     </button>
   );
 }

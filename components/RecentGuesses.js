@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 // Primary jersey colors — sourced from official IPL 2026 team cards
 const TEAM_COLORS = {
@@ -51,6 +51,22 @@ function matchLabel(matchStr) {
 export default function RecentGuesses({ guesses }) {
   const list = useMemo(() => guesses.slice(0, 40), [guesses]);
 
+  // Flash items that are new since the last refresh
+  const prevNewestRef   = useRef(null);
+  const [flashThreshold, setFlashThreshold] = useState(null);
+
+  useEffect(() => {
+    const currentNewest = list[0]?.timestamp_dt ?? null;
+    if (prevNewestRef.current !== null && currentNewest && currentNewest !== prevNewestRef.current) {
+      // New items arrived — flash anything newer than what we had before
+      setFlashThreshold(prevNewestRef.current);
+      const t = setTimeout(() => setFlashThreshold(null), 2500);
+      prevNewestRef.current = currentNewest;
+      return () => clearTimeout(t);
+    }
+    prevNewestRef.current = currentNewest;
+  }, [list]);
+
   return (
     <div className="bg-surface border border-stroke rounded-2xl overflow-hidden flex flex-col h-[680px]">
 
@@ -74,9 +90,13 @@ export default function RecentGuesses({ guesses }) {
             const time        = formatTime(guess.timestamp_dt);
             const avatarColor = nameToColor(guess["Submitted By"]);
             const result      = guess.result; // 'correct' | 'wrong' | 'pending'
+            const isNew       = flashThreshold && guess.timestamp_dt > flashThreshold;
 
             return (
-              <div key={idx} className="px-5 py-3 flex items-center gap-3 hover:bg-raised transition-colors">
+              <div
+                key={idx}
+                className={`px-5 py-3 flex items-center gap-3 hover:bg-raised transition-colors ${isNew ? 'animate-flashNew' : ''}`}
+              >
                 {/* Avatar */}
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0 select-none"

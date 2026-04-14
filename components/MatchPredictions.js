@@ -1,4 +1,5 @@
 // Pure CSS vote bars — no Chart.js needed
+import { useState, useEffect } from 'react';
 
 // Primary jersey colors — sourced from official IPL 2026 team cards
 const TEAM_COLORS = {
@@ -33,6 +34,13 @@ function hoursUntil(iso) {
 }
 
 export default function MatchPredictions({ upcomingMatches }) {
+  // Trigger bar animations after mount so they visibly fill in
+  const [barsReady, setBarsReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setBarsReady(true), 80);
+    return () => clearTimeout(t);
+  }, []);
+
   if (!upcomingMatches.length) {
     return (
       <div className="bg-surface border border-stroke rounded-2xl p-10 text-center">
@@ -91,12 +99,14 @@ export default function MatchPredictions({ upcomingMatches }) {
                 pct={aVal}
                 color={aColor}
                 voterNames={voters[teams[0]] || []}
+                ready={barsReady}
               />
               <VoteBar
                 team={teams[1]}
                 pct={bVal}
                 color={bColor}
                 voterNames={voters[teams[1]] || []}
+                ready={barsReady}
               />
             </div>
 
@@ -115,7 +125,7 @@ export default function MatchPredictions({ upcomingMatches }) {
   );
 }
 
-function VoteBar({ team, pct, color, voterNames }) {
+function VoteBar({ team, pct, color, voterNames, ready }) {
   const MAX_SHOWN = 3;
   const shown = voterNames.slice(0, MAX_SHOWN);
   const extra = voterNames.length - MAX_SHOWN;
@@ -127,7 +137,7 @@ function VoteBar({ team, pct, color, voterNames }) {
         <div className="flex-1 h-1.5 bg-raised rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pct}%`, backgroundColor: color }}
+            style={{ width: ready ? `${pct}%` : '0%', backgroundColor: color }}
           />
         </div>
         <span className="text-xs text-slate-500 w-9 text-right flex-shrink-0 tabular-nums">{pct.toFixed(0)}%</span>

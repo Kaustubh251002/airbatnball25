@@ -25,9 +25,14 @@ module.exports = {
           from: { opacity: '0', transform: 'translateX(-8px)' },
           to:   { opacity: '1', transform: 'translateX(0)' },
         },
+        flashNew: {
+          '0%':   { backgroundColor: 'rgba(255, 107, 53, 0.13)' },
+          '100%': { backgroundColor: 'transparent' },
+        },
       },
       animation: {
         slideInRow: 'slideInRow 0.3s ease both',
+        flashNew:   'flashNew 2.5s ease-out forwards',
       },
     }
   },

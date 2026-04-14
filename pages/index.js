@@ -1,8 +1,27 @@
 import Head from 'next/head';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Leaderboard from '../components/Leaderboard';
 import MatchPredictions from '../components/MatchPredictions';
 import RecentGuesses from '../components/RecentGuesses';
+
+/** Counts up from 0 → target over `duration` ms */
+function useCountUp(target, duration = 700) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (target === 0) { setCount(0); return; }
+    let start = null;
+    let rafId;
+    function step(ts) {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / duration, 1);
+      setCount(Math.round(p * target));
+      if (p < 1) rafId = requestAnimationFrame(step);
+    }
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [target, duration]);
+  return count;
+}
 
 export default function Home() {
   const [data, setData] = useState({
@@ -11,10 +30,10 @@ export default function Home() {
     recentGuesses: [],
     scheduleData: [],
   });
-  const [loading, setLoading]       = useState(true);
+  const [loading, setLoading]         = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [lightMode, setLightMode]   = useState(false);
-  const [activeTab, setActiveTab]   = useState('rankings');
+  const [lightMode, setLightMode]     = useState(false);
+  const [activeTab, setActiveTab]     = useState('rankings');
 
   const rankingsRef = useRef(null);
   const feedRef     = useRef(null);
@@ -66,6 +85,18 @@ export default function Home() {
   const totalMatches  = data.scheduleData?.length ?? 0;
   const matchesDone   = data.scheduleData?.filter(m => m.Winner && m.Winner !== 'TBD').length ?? 0;
   const seasonPct     = totalMatches > 0 ? Math.round((matchesDone / totalMatches) * 100) : 0;
+
+  // Next upcoming match (soonest)
+  const nextMatch = useMemo(() => {
+    if (!data.upcomingMatches.length) return null;
+    return [...data.upcomingMatches].sort(
+      (a, b) => new Date(a.start_time_iso) - new Date(b.start_time_iso)
+    )[0];
+  }, [data.upcomingMatches]);
+
+  const nextMatchHours = nextMatch
+    ? Math.max(0, Math.floor((new Date(nextMatch.start_time_iso) - Date.now()) / 3600000))
+    : 0;
 
   function scrollToTab(tab) {
     setActiveTab(tab);
@@ -129,6 +160,21 @@ export default function Home() {
         </div>
         <div className="h-px bg-gradient-to-r from-transparent via-stroke to-transparent" />
       </header>
+
+      {/* ── Next match banner ────────────────────────── */}
+      {nextMatch && (
+        <div className="sticky top-14 z-30 bg-app/95 backdrop-blur-sm border-b border-stroke">
+          <div className="max-w-5xl mx-auto px-4 h-8 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[9px] uppercase tracking-widest text-slate-600">Next Up</span>
+              <span className="text-xs font-semibold text-slate-200">{nextMatch.Teams}</span>
+            </div>
+            <span className={`text-[10px] font-medium ${nextMatchHours < 2 ? 'text-brand' : 'text-slate-500'}`}>
+              {nextMatchHours < 1 ? 'Starting soon' : `${nextMatchHours}h away`}
+            </span>
+          </div>
+        </div>
+      )}
 
       <main className="relative max-w-5xl mx-auto px-4 py-6 space-y-6">
 
@@ -213,6 +259,7 @@ export default function Home() {
 }
 
 function StatCard({ value, label, numColor = 'text-slate-50', topColor }) {
+  const animValue = useCountUp(value);
   return (
     <div
       className="bg-surface border border-stroke rounded-xl px-4 py-3 text-center relative overflow-hidden"
@@ -224,7 +271,7 @@ function StatCard({ value, label, numColor = 'text-slate-50', topColor }) {
           style={{ background: `radial-gradient(ellipse 80% 100% at 50% -20%, ${topColor}14 0%, transparent 70%)` }}
         />
       )}
-      <p className={`text-xl font-bold relative ${numColor}`}>{value}</p>
+      <p className={`text-xl font-bold relative ${numColor}`}>{animValue}</p>
       <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-0.5 relative">{label}</p>
     </div>
   );

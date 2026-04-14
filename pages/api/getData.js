@@ -98,6 +98,8 @@ export default async function handler(req, res) {
   }
 
   // ── Leaderboard ───────────────────────────────────────────────────────────
+  // Track how many valid guesses each user made for decided matches (for accurate accuracy%)
+  const decidedGuessesMap = {};
   const leaderboard = {};
   scheduleData.forEach(match => {
     if (match["Winner"] && match["Winner"] !== "TBD") {
@@ -105,11 +107,13 @@ export default async function handler(req, res) {
       const winner = match["Winner"];
       responsesWithValidity.forEach(resp => {
         if (resp["Match ID"] === matchId && resp.valid_guess) {
+          const user = resp["Submitted By"].trim();
+          decidedGuessesMap[user] = (decidedGuessesMap[user] || 0) + 1;
           if (resp["Who will win the match today ? "].trim() === winner.trim()) {
-            const user = resp["Submitted By"].trim();
             if (!leaderboard[user]) {
-              leaderboard[user] = { matches: [], correctGuesses: 0, lastCorrectTs: null };
+              leaderboard[user] = { matches: [], correctGuesses: 0, correctCount: 0, lastCorrectTs: null };
             }
+            leaderboard[user]["correctCount"] += 1;
             leaderboard[user]["correctGuesses"] += 1;
             if (matchId.includes("Qualifier") || matchId.includes("Eliminator"))
               leaderboard[user]["correctGuesses"] += 1;
@@ -129,6 +133,8 @@ export default async function handler(req, res) {
     .map(([user, data]) => ({
       user,
       correctGuesses: data.correctGuesses,
+      correctCount: data.correctCount,
+      decidedGuesses: decidedGuessesMap[user] || data.correctCount,
       matches: data.matches,
       totalGuesses: userStats[user]?.totalGuesses || data.matches.length,
       lastPrediction: userStats[user]?.lastPrediction || null,
