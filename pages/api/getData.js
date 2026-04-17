@@ -129,6 +129,26 @@ export default async function handler(req, res) {
     }
   });
 
+  // ── All-guesses map for modal detail view ────────────────────────────────
+  const allGuessesMap = {};
+  responsesWithValidity.forEach(resp => {
+    if (!resp.valid_guess) return;
+    const user = resp["Submitted By"].trim();
+    if (!allGuessesMap[user]) allGuessesMap[user] = [];
+    const sched = scheduleMap[resp["Match ID"]];
+    let result = 'pending';
+    if (sched && sched.Winner && sched.Winner !== 'TBD') {
+      result = resp["Who will win the match today ? "].trim() === sched.Winner.trim() ? 'correct' : 'wrong';
+    }
+    allGuessesMap[user].push({
+      match: resp["Match"],
+      matchId: resp["Match ID"],
+      team: resp["Who will win the match today ? "].trim(),
+      timestamp_dt: resp.timestamp_dt,
+      result,
+    });
+  });
+
   const leaderboardData = Object.entries(leaderboard)
     .map(([user, data]) => ({
       user,
@@ -140,6 +160,7 @@ export default async function handler(req, res) {
       lastPrediction: userStats[user]?.lastPrediction || null,
       lastCorrectTs: data.lastCorrectTs,
       streak: computeStreak(user),
+      allGuesses: (allGuessesMap[user] || []).sort((a, b) => new Date(b.timestamp_dt) - new Date(a.timestamp_dt)),
     }))
     .sort((a, b) => {
       if (b.correctGuesses !== a.correctGuesses) return b.correctGuesses - a.correctGuesses;
@@ -148,17 +169,28 @@ export default async function handler(req, res) {
       return 0;
     });
 
-  // ── Upcoming matches ──────────────────────────────────────────────────────
+  // ── Upcoming + ongoing matches ────────────────────────────────────────────
   const now = new Date();
-  const upcomingMatches = scheduleData.filter(match =>
-    match["Winner"] === "TBD" &&
-    match.start_time_iso &&
-    new Date(match.start_time_iso) > now
-  ).map(match => {
+  const LIVE_WINDOW_MS = 5 * 60 * 60 * 1000; // 5 hours
+
+  const upcomingMatches = scheduleData.filter(match => {
+    if (match["Winner"] && match["Winner"] !== "TBD") return false;
+    if (!match.start_time_iso) return false;
+    const startTime = new Date(match.start_time_iso);
+    // Hide matches that have ended (past live window) with no winner recorded
+    if (now - startTime > LIVE_WINDOW_MS) return false;
+    return true;
+  }).map(match => {
+    const startTime = new Date(match.start_time_iso);
+    const isOngoing = startTime <= now && now - startTime <= LIVE_WINDOW_MS;
     const matchResponses = responsesWithValidity.filter(resp =>
       resp["Match ID"] === match.matchId && resp.valid_guess
     );
-    if (matchResponses.length === 0) return null;
+
+    // Skip upcoming matches with no predictions; still show ongoing ones
+    if (matchResponses.length === 0) {
+      return isOngoing ? { ...match, percentages: {}, voterNames: {}, totalVotes: 0, isOngoing } : null;
+    }
 
     const voteCounts = {};
     const voterNames = {};
@@ -173,22 +205,27 @@ export default async function handler(req, res) {
       Object.entries(voteCounts).map(([team, count]) => [team, ((count / total) * 100).toFixed(2)])
     );
 
-    return { ...match, percentages, voterNames, totalVotes: total };
-  }).filter(match => match !== null);
-
-  // ── Recent guesses with result ────────────────────────────────────────────
-  const recentGuesses = responsesWithValidity
-    .filter(resp => resp.valid_guess)
-    .sort((a, b) => new Date(b.timestamp_dt) - new Date(a.timestamp_dt))
-    .map(resp => {
-      const match = scheduleMap[resp["Match ID"]];
-      let result = 'pending';
-      if (match && match.Winner && match.Winner !== 'TBD') {
-        result = resp["Who will win the match today ? "].trim() === match.Winner.trim()
-          ? 'correct' : 'wrong';
-      }
-      return { ...resp, result };
+    return { ...match, percentages, voterNames, totalVotes: total, isOngoing };
+  }).filter(match => match !== null)
+    // Sort ongoing first, then by start time
+    .sort((a, b) => {
+      if (a.isOngoing !== b.isOngoing) return a.isOngoing ? -1 : 1;
+      return new Date(a.start_time_iso) - new Date(b.start_time_iso);
     });
+
+  // ── Recent guesses — only for undecided matches ───────────────────────────
+  const recentGuesses = responsesWithValidity
+    .filter(resp => {
+      if (!resp.valid_guess) return false;
+      const sched = scheduleMap[resp["Match ID"]];
+      // Only include if match has no winner yet
+      return sched && (!sched.Winner || sched.Winner === 'TBD');
+    })
+    .sort((a, b) => new Date(b.timestamp_dt) - new Date(a.timestamp_dt))
+    .map(resp => ({ ...resp, result: 'pending' }));
+
+  const totalPredictions = responsesWithValidity.filter(r => r.valid_guess).length;
+  const matchesPending   = scheduleData.filter(m => !m.Winner || m.Winner === 'TBD').length;
 
   res.status(200).json({
     scheduleData,
@@ -196,6 +233,8 @@ export default async function handler(req, res) {
     leaderboardData,
     upcomingMatches,
     recentGuesses,
+    totalPredictions,
+    matchesPending,
   });
 }
 

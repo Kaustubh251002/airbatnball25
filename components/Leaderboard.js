@@ -2,21 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import UserMatchModal from './UserMatchModal';
 
 const RANK_META = {
-  0: { color: '#F5C542', textColor: 'text-gold',   badgeBg: 'bg-gold',   badgeText: 'text-app', sublabel: 'Champion',    glow: 'rgba(245,197,66,0.08)'  },
-  1: { color: '#9EB2C8', textColor: 'text-silver', badgeBg: 'bg-silver', badgeText: 'text-app', sublabel: 'Runner-up',   glow: 'rgba(158,178,200,0.07)' },
-  2: { color: '#C87941', textColor: 'text-bronze', badgeBg: 'bg-bronze', badgeText: 'text-app', sublabel: 'Third Place', glow: 'rgba(200,121,65,0.07)'  },
+  0: { color: '#F5C542', textColor: 'text-gold',   badgeBg: 'bg-gold',   badgeText: 'text-app', glow: 'rgba(245,197,66,0.07)'  },
+  1: { color: '#9EB2C8', textColor: 'text-silver', badgeBg: 'bg-silver', badgeText: 'text-app', glow: 'rgba(158,178,200,0.06)' },
+  2: { color: '#C87941', textColor: 'text-bronze', badgeBg: 'bg-bronze', badgeText: 'text-app', glow: 'rgba(200,121,65,0.06)'  },
 };
-
-/** djb2-style hash → consistent HSL color per name */
-function nameToColor(name) {
-  let hash = 5381;
-  for (let i = 0; i < name.length; i++) {
-    hash = ((hash << 5) + hash) + name.charCodeAt(i);
-    hash = hash & 0xFFFFFFFF;
-  }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 60%, 55%)`;
-}
 
 /** Counts up from 0 → target over `duration` ms */
 function useCountUp(target, duration = 600) {
@@ -41,8 +30,6 @@ export default function Leaderboard({ data }) {
   const [query, setQuery]       = useState('');
   const [selected, setSelected] = useState(null);
 
-  const topScore = data[0]?.correctGuesses || 1;
-
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return null;
@@ -53,7 +40,7 @@ export default function Leaderboard({ data }) {
   }, [query, data]);
 
   const top3 = data.slice(0, 3).map((item, i) => ({ ...item, rank: i }));
-  const rest = data.slice(3, 10).map((item, i) => ({ ...item, rank: i + 3 }));
+  const rest = data.slice(3).map((item, i) => ({ ...item, rank: i + 3 }));
 
   // Find the player with the highest active streak
   const topStreaker = data.length > 0
@@ -68,7 +55,7 @@ export default function Leaderboard({ data }) {
       <div className="px-5 py-4 border-b border-stroke flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="text-sm font-semibold">Leaderboard</h2>
-          <p className="text-[10px] text-slate-500 mt-0.5">{data.length} players · top 10 shown</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{data.length} players</p>
         </div>
       </div>
 
@@ -100,31 +87,22 @@ export default function Leaderboard({ data }) {
       <div className="overflow-y-auto flex-1">
         {searchResults !== null ? (
           searchResults.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-600">No players found</p>
+            <p className="py-10 text-center text-sm text-slate-400">No players found</p>
           ) : (
             <div className="divide-y divide-stroke">
               {searchResults.map(entry => (
-                <ListRow key={entry.user} entry={entry} topScore={topScore} onSelect={setSelected} />
+                <LeaderboardRow key={entry.user} entry={entry} onSelect={setSelected} />
               ))}
             </div>
           )
         ) : data.length === 0 ? (
-          <p className="py-10 text-center text-sm text-slate-600">No results yet</p>
+          <p className="py-10 text-center text-sm text-slate-400">No results yet</p>
         ) : (
-          <>
-            <div className="divide-y divide-stroke border-b border-stroke">
-              {top3.map(entry => (
-                <PodiumRow key={entry.user} entry={entry} onSelect={setSelected} />
-              ))}
-            </div>
-            {rest.length > 0 && (
-              <div className="divide-y divide-stroke">
-                {rest.map(entry => (
-                  <ListRow key={entry.user} entry={entry} topScore={topScore} onSelect={setSelected} />
-                ))}
-              </div>
-            )}
-          </>
+          <div className="divide-y divide-stroke">
+            {[...top3, ...rest].map(entry => (
+              <LeaderboardRow key={entry.user} entry={entry} onSelect={setSelected} />
+            ))}
+          </div>
         )}
       </div>
 
@@ -133,7 +111,7 @@ export default function Leaderboard({ data }) {
           isOpen
           onClose={() => setSelected(null)}
           user={selected.user}
-          matches={selected.matches}
+          allGuesses={selected.allGuesses || []}
           rank={selected.rank + 1}
           score={selected.correctGuesses}
         />
@@ -142,126 +120,57 @@ export default function Leaderboard({ data }) {
   );
 }
 
-/* ── Podium row — top 3 ── */
-function PodiumRow({ entry, onSelect }) {
-  const meta        = RANK_META[entry.rank];
-  const isChampion  = entry.rank === 0;
-  const avatarColor = nameToColor(entry.user);
-  const accuracy    = entry.totalGuesses > 0
-    ? Math.round(((entry.correctCount ?? entry.correctGuesses) / (entry.decidedGuesses ?? entry.totalGuesses)) * 100)
+/* ── Shared row — used for all 10 entries ── */
+function LeaderboardRow({ entry, onSelect }) {
+  const meta     = RANK_META[entry.rank] ?? null;
+  const accuracy = entry.decidedGuesses > 0
+    ? Math.round(((entry.correctCount ?? entry.correctGuesses) / entry.decidedGuesses) * 100)
     : 0;
-  const animScore   = useCountUp(entry.correctGuesses);
+  const animScore = useCountUp(entry.correctGuesses);
 
   return (
     <button
       onClick={() => onSelect(entry)}
-      className={`w-full text-left flex items-center gap-3 hover:brightness-110 transition-all border-l-2 animate-slideInRow ${
-        isChampion ? 'px-5 py-4' : 'px-5 py-3'
-      }`}
+      className="w-full text-left px-5 py-2.5 flex items-center gap-3 hover:bg-raised transition-colors animate-slideInRow border-l-2"
       style={{
-        borderLeftColor: meta.color,
-        background: `linear-gradient(90deg, ${meta.glow} 0%, transparent 55%)`,
+        borderLeftColor: meta ? meta.color : 'transparent',
+        background: meta ? `linear-gradient(90deg, ${meta.glow} 0%, transparent 55%)` : undefined,
         animationDelay: `${entry.rank * 40}ms`,
       }}
     >
-      {/* Rank badge */}
-      <div
-        className={`rounded-xl ${meta.badgeBg} ${meta.badgeText} flex items-center justify-center font-bold flex-shrink-0 ${
-          isChampion ? 'w-9 h-9 text-base' : 'w-7 h-7 text-sm'
-        }`}
-      >
-        {entry.rank + 1}
-      </div>
+      {/* Rank badge — colored for top 3, plain number for rest */}
+      {meta ? (
+        <div className={`w-7 h-7 rounded-xl ${meta.badgeBg} ${meta.badgeText} flex items-center justify-center text-sm font-bold flex-shrink-0`}>
+          {entry.rank + 1}
+        </div>
+      ) : (
+        <span className="w-7 text-xs text-slate-400 font-medium text-center flex-shrink-0 tabular-nums">
+          {entry.rank + 1}
+        </span>
+      )}
 
-      {/* Avatar */}
-      <div
-        className={`rounded-full flex items-center justify-center font-bold text-white flex-shrink-0 select-none ${
-          isChampion ? 'w-9 h-9 text-sm' : 'w-7 h-7 text-xs'
-        }`}
-        style={{ backgroundColor: avatarColor }}
-      >
-        {entry.user.charAt(0).toUpperCase()}
-      </div>
-
-      {/* Name + sublabel */}
+      {/* Name + accuracy */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <p className={`font-bold truncate ${meta.textColor} ${isChampion ? 'text-base' : 'text-sm'}`}>
+          <p className={`text-sm font-bold truncate leading-none ${meta ? meta.textColor : 'text-slate-200'}`}>
             {entry.user}
           </p>
           {entry.streak >= 3 && (
-            <span className="text-[10px] font-semibold text-brand bg-brand/10 border border-brand/20 rounded-full px-1.5 py-0.5 flex-shrink-0">
-              🔥 {entry.streak}
-            </span>
+            <span className="text-[10px] text-brand flex-shrink-0">🔥 {entry.streak}</span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <p className="text-[10px] text-slate-500">{meta.sublabel}</p>
-          {accuracy > 0 && (
-            <span className="text-[10px] text-slate-600">· {accuracy}% acc</span>
-          )}
-        </div>
+        {accuracy > 0 && (
+          <p className="text-[10px] mt-0.5" style={{ color: `hsl(${Math.round(accuracy * 1.2)}, 75%, 58%)` }}>{accuracy}% accuracy</p>
+        )}
       </div>
 
-      {/* Score */}
+      {/* Score + pts */}
       <div className="text-right flex-shrink-0">
-        <p className={`font-bold tabular-nums leading-none ${meta.textColor} ${isChampion ? 'text-2xl' : 'text-lg'}`}>
+        <p className={`text-sm font-bold tabular-nums leading-none ${meta ? meta.textColor : 'text-slate-300'}`}>
           {animScore}
         </p>
-        <p className="text-[10px] text-slate-600 mt-0.5">pts</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">pts</p>
       </div>
-    </button>
-  );
-}
-
-/* ── Compact list row (#4–10 / search results) ── */
-function ListRow({ entry, topScore, onSelect }) {
-  const avatarColor = nameToColor(entry.user);
-  const accuracy    = entry.totalGuesses > 0
-    ? Math.round(((entry.correctCount ?? entry.correctGuesses) / (entry.decidedGuesses ?? entry.totalGuesses)) * 100)
-    : 0;
-  const animBar     = useCountUp(topScore > 0 ? (entry.correctGuesses / topScore) * 100 : 0);
-  const animScore   = useCountUp(entry.correctGuesses);
-
-  return (
-    <button
-      onClick={() => onSelect(entry)}
-      className="w-full text-left px-5 py-2.5 flex items-center gap-3 hover:bg-raised transition-colors animate-slideInRow"
-      style={{ animationDelay: `${entry.rank * 40}ms` }}
-    >
-      <span className="w-5 text-xs text-slate-600 font-medium text-right flex-shrink-0 tabular-nums">
-        {entry.rank + 1}
-      </span>
-
-      {/* Avatar */}
-      <div
-        className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-white text-xs flex-shrink-0 select-none"
-        style={{ backgroundColor: avatarColor }}
-      >
-        {entry.user.charAt(0).toUpperCase()}
-      </div>
-
-      <div className="flex-1 min-w-0 space-y-1">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="text-sm text-slate-300 truncate leading-none">{entry.user}</p>
-          {entry.streak >= 3 && (
-            <span className="text-[10px] text-brand flex-shrink-0">🔥{entry.streak}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-px bg-stroke rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-none"
-              style={{ width: `${animBar}%`, background: 'rgba(255,107,53,0.45)' }}
-            />
-          </div>
-          {accuracy > 0 && (
-            <span className="text-[10px] text-slate-600 flex-shrink-0">{accuracy}%</span>
-          )}
-        </div>
-      </div>
-
-      <span className="text-sm font-bold text-slate-300 tabular-nums flex-shrink-0">{animScore}</span>
     </button>
   );
 }

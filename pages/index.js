@@ -32,35 +32,11 @@ export default function Home() {
   });
   const [loading, setLoading]         = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [lightMode, setLightMode]     = useState(false);
   const [activeTab, setActiveTab]     = useState('rankings');
 
   const rankingsRef = useRef(null);
   const feedRef     = useRef(null);
   const matchesRef  = useRef(null);
-
-  // Persist light mode
-  useEffect(() => {
-    const stored = localStorage.getItem('lightMode');
-    if (stored === 'true') {
-      setLightMode(true);
-      document.documentElement.classList.add('light');
-    }
-  }, []);
-
-  function toggleLight() {
-    setLightMode(prev => {
-      const next = !prev;
-      if (next) {
-        document.documentElement.classList.add('light');
-        localStorage.setItem('lightMode', 'true');
-      } else {
-        document.documentElement.classList.remove('light');
-        localStorage.setItem('lightMode', 'false');
-      }
-      return next;
-    });
-  }
 
   useEffect(() => {
     async function fetchData() {
@@ -81,15 +57,15 @@ export default function Home() {
   }, []);
 
   const totalPlayers  = data.leaderboardData.length;
-  const totalGuesses  = data.recentGuesses.length;
-  const totalMatches  = data.scheduleData?.length ?? 0;
+  const totalGuesses  = data.totalPredictions ?? 0;
   const matchesDone   = data.scheduleData?.filter(m => m.Winner && m.Winner !== 'TBD').length ?? 0;
-  const seasonPct     = totalMatches > 0 ? Math.round((matchesDone / totalMatches) * 100) : 0;
+  const matchesPending = data.matchesPending ?? 0;
 
-  // Next upcoming match (soonest)
+  // Next upcoming match — exclude live/ongoing matches
   const nextMatch = useMemo(() => {
-    if (!data.upcomingMatches.length) return null;
-    return [...data.upcomingMatches].sort(
+    const nonLive = data.upcomingMatches.filter(m => !m.isOngoing);
+    if (!nonLive.length) return null;
+    return [...nonLive].sort(
       (a, b) => new Date(a.start_time_iso) - new Date(b.start_time_iso)
     )[0];
   }, [data.upcomingMatches]);
@@ -109,7 +85,7 @@ export default function Home() {
       <div className="min-h-screen bg-app flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-slate-500">Loading predictions…</p>
+          <p className="text-xs text-slate-400">Loading predictions…</p>
         </div>
       </div>
     );
@@ -140,21 +116,7 @@ export default function Home() {
             </div>
             <div className="leading-none">
               <p className="text-sm font-bold tracking-tight">Air Bat N&apos; Ball</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">IPL 2026 · Prediction League</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Light mode toggle */}
-            <button
-              onClick={toggleLight}
-              className="w-8 h-8 rounded-lg bg-surface border border-stroke flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors text-sm"
-              title={lightMode ? 'Switch to dark mode' : 'Switch to light mode'}
-            >
-              {lightMode ? '🌙' : '☀️'}
-            </button>
-            <div className="flex items-center gap-1.5 bg-leaf/10 border border-leaf/20 rounded-full px-2.5 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-leaf animate-pulse" />
-              <span className="text-[10px] font-semibold text-leaf tracking-wide">LIVE</span>
+              <p className="text-[10px] text-slate-400 mt-0.5">IPL 2026 · Prediction League</p>
             </div>
           </div>
         </div>
@@ -166,10 +128,10 @@ export default function Home() {
         <div className="sticky top-14 z-30 bg-app/95 backdrop-blur-sm border-b border-stroke">
           <div className="max-w-5xl mx-auto px-4 h-8 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="text-[9px] uppercase tracking-widest text-slate-600">Next Up</span>
+              <span className="text-[9px] uppercase tracking-widest text-slate-400">Next Up</span>
               <span className="text-xs font-semibold text-slate-200">{nextMatch.Teams}</span>
             </div>
-            <span className={`text-[10px] font-medium ${nextMatchHours < 2 ? 'text-brand' : 'text-slate-500'}`}>
+            <span className={`text-[10px] font-medium ${nextMatchHours < 2 ? 'text-brand' : 'text-slate-400'}`}>
               {nextMatchHours < 1 ? 'Starting soon' : `${nextMatchHours}h away`}
             </span>
           </div>
@@ -179,31 +141,12 @@ export default function Home() {
       <main className="relative max-w-5xl mx-auto px-4 py-6 space-y-6">
 
         {/* ── Stats strip ─────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-3">
-          <StatCard value={totalPlayers} label="Players"     numColor="text-brand"     topColor="#FF6B35" />
-          <StatCard value={totalGuesses} label="Predictions" numColor="text-indigo-400" topColor="#818CF8" />
-          <StatCard value={matchesDone}  label="Results In"  numColor="text-leaf"      topColor="#22C55E" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard value={totalPlayers}   label="Players"     numColor="text-brand"      topColor="#FF6B35" />
+          <StatCard value={totalGuesses}   label="Predictions" numColor="text-indigo-400" topColor="#818CF8" />
+          <StatCard value={matchesDone}    label="Matches Decided"   numColor="text-leaf"       topColor="#22C55E" />
+          <StatCard value={matchesPending} label="Matches Remaining" numColor="text-amber-400"  topColor="#FBBF24" />
         </div>
-
-        {/* ── Season progress bar ─────────────────────── */}
-        {totalMatches > 0 && (
-          <div className="bg-surface border border-stroke rounded-xl px-4 py-3 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-widest text-slate-500">Season Progress</span>
-              <span className="text-[10px] font-semibold text-slate-400">{matchesDone} / {totalMatches} matches</span>
-            </div>
-            <div className="h-1.5 bg-raised rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{
-                  width: `${seasonPct}%`,
-                  background: 'linear-gradient(90deg, #FF6B35 0%, #F5C542 100%)',
-                }}
-              />
-            </div>
-            <p className="text-[10px] text-slate-600 text-right">{seasonPct}% complete</p>
-          </div>
-        )}
 
         {/* ── Leaderboard + Feed ──────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -218,8 +161,8 @@ export default function Home() {
         {/* ── Upcoming Matches ────────────────────────── */}
         <section ref={matchesRef} id="tab-matches">
           <div className="mb-4">
-            <h2 className="text-sm font-semibold">Upcoming Matches</h2>
-            <p className="text-[10px] text-slate-500 mt-0.5">Community vote split</p>
+            <h2 className="text-sm font-semibold">Match Centre</h2>
+            <p className="text-[10px] text-slate-400 mt-0.5">Live & upcoming · community vote split</p>
           </div>
           <MatchPredictions upcomingMatches={data.upcomingMatches} />
         </section>
@@ -227,7 +170,7 @@ export default function Home() {
       </main>
 
       <footer className="relative border-t border-stroke mt-8 py-5 text-center">
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-slate-400">
           Refreshes every 5 min
           {lastUpdated && ` · Last updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
         </p>
@@ -245,7 +188,7 @@ export default function Home() {
               key={tab.id}
               onClick={() => scrollToTab(tab.id)}
               className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors ${
-                activeTab === tab.id ? 'text-brand' : 'text-slate-500'
+                activeTab === tab.id ? 'text-brand' : 'text-slate-400'
               }`}
             >
               <span className="text-base leading-none">{tab.icon}</span>
@@ -272,7 +215,7 @@ function StatCard({ value, label, numColor = 'text-slate-50', topColor }) {
         />
       )}
       <p className={`text-xl font-bold relative ${numColor}`}>{animValue}</p>
-      <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-0.5 relative">{label}</p>
+      <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-0.5 relative">{label}</p>
     </div>
   );
 }
