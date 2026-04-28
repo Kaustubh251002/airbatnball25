@@ -145,6 +145,7 @@ export default async function handler(req, res) {
       matchId: resp["Match ID"],
       team: resp["Who will win the match today ? "].trim(),
       timestamp_dt: resp.timestamp_dt,
+      start_time_iso: sched?.start_time_iso || null,
       result,
     });
   });
@@ -160,7 +161,7 @@ export default async function handler(req, res) {
       lastPrediction: userStats[user]?.lastPrediction || null,
       lastCorrectTs: data.lastCorrectTs,
       streak: computeStreak(user),
-      allGuesses: (allGuessesMap[user] || []).sort((a, b) => new Date(b.timestamp_dt) - new Date(a.timestamp_dt)),
+      allGuesses: (allGuessesMap[user] || []).sort((a, b) => new Date(b.start_time_iso) - new Date(a.start_time_iso)),
     }))
     .sort((a, b) => {
       if (b.correctGuesses !== a.correctGuesses) return b.correctGuesses - a.correctGuesses;
